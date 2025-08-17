@@ -1,10 +1,39 @@
-export default async function handler(req, res) {
-  const { emailText } = req.body;
+import fetch from "node-fetch";
 
-  const token = import.meta.env.VITE_HUGGINGFACE_TOKEN;
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Parse JSON body safely
+  let body;
+  try {
+    body = req.body;
+
+    // If req.body is empty, parse it manually
+    if (!body || Object.keys(body).length === 0) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString();
+      body = JSON.parse(rawBody);
+    }
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid JSON" });
+  }
+
+  const { emailText } = body;
+
+  if (!emailText) {
+    return res.status(400).json({ error: "Missing emailText in body" });
+  }
+
+  const token = process.env.HUGGINGFACE_API_TOKEN;
 
   if (!token) {
-    return res.status(500).json({ error: "Missing HuggingFace token" });
+    console.error("❌ Missing HuggingFace API token");
+    return res.status(500).json({ error: "Missing API token" });
   }
 
   try {
@@ -17,10 +46,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          inputs: [
-            { role: "system", content: "You are an assistant that summarizes emails concisely." },
-            { role: "user", content: `Summarize this email: ${emailText}` },
-          ],
+          inputs: `Summarize this email: ${emailText}`,
           parameters: {
             max_new_tokens: 256,
             temperature: 0.7,
@@ -31,9 +57,14 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    if (data.error) {
+      console.error("❌ HuggingFace API Error:", data);
+      return res.status(500).json({ error: data.error });
+    }
+
     res.status(200).json(data);
   } catch (error) {
-    console.error("API error:", error);
+    console.error("❌ Serverless function error:", error);
     res.status(500).json({ error: "Failed to fetch summary" });
   }
 }
