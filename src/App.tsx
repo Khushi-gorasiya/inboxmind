@@ -10,7 +10,7 @@ function App() {
       "https://api-inference.huggingface.co/models/meta-llama/Llama-3-8b-chat-hf",
       {
         headers: {
-         Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_TOKEN}`, 
+         Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`, 
           "Content-Type": "application/json",
         },
         method: "POST",
