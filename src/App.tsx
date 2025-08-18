@@ -3,9 +3,16 @@ import { useState } from 'react';
 function App() {
   const [emailText, setEmailText] = useState('');
   const [summary, setSummary] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSummarize = async () => {
-    setSummary("Summarizing...");
+    if (!emailText.trim()) {
+      setSummary('Please enter an email to summarize.');
+      return;
+    }
+
+    setLoading(true);
+    setSummary('');
 
     try {
       const response = await fetch('/api/summarize', {
@@ -17,21 +24,22 @@ function App() {
       const data = await response.json();
 
       if (data.error) {
-        setSummary("Error: " + data.error);
-      } else if (Array.isArray(data) && data[0]?.generated_text) {
-        setSummary(data[0].generated_text);
+        setSummary(`Error: ${data.error}`);
+      } else if (data.summary) {
+        setSummary(data.summary);
       } else {
-        setSummary("No summary returned.");
+        setSummary('No summary returned.');
       }
-    } catch (error) {
-      console.error("Summarization failed:", error);
-      setSummary("Failed to summarize. Please try again later.");
+    } catch (err) {
+      setSummary('Failed to summarize email.');
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="App" style={{ padding: '2rem', fontFamily: 'Arial' }}>
-      <h1>📬 InboxMind</h1>
+      <h1>InboxMind</h1>
 
       <textarea
         rows={10}
@@ -39,38 +47,26 @@ function App() {
         placeholder="Paste your email here..."
         value={emailText}
         onChange={(e) => setEmailText(e.target.value)}
-        style={{
-          padding: '10px',
-          fontSize: '16px',
-          width: '100%',
-          boxSizing: 'border-box',
-          marginBottom: '10px',
-        }}
+        style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
       />
+
+      <br />
 
       <button
         onClick={handleSummarize}
-        style={{
-          padding: '10px 20px',
-          fontSize: '16px',
-          cursor: 'pointer',
-          backgroundColor: '#007bff',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-        }}
+        style={{ marginTop: '10px', padding: '10px 20px', fontSize: '16px' }}
+        disabled={loading}
       >
-        Summarize Email
+        {loading ? 'Summarizing...' : 'Summarize Email'}
       </button>
 
-      <h3 style={{ marginTop: '2rem' }}>📝 Summary:</h3>
+      <h3 style={{ marginTop: '2rem' }}>Summary:</h3>
       <div
         style={{
           backgroundColor: '#f5f5f5',
           padding: '10px',
           minHeight: '100px',
           whiteSpace: 'pre-wrap',
-          borderRadius: '4px',
         }}
       >
         {summary}
