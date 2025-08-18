@@ -61,6 +61,8 @@ function App() {
         {loading ? 'Summarizing...' : 'Summarize Email'}
       </button>
 
+      <PriorityFlag emailText={emailText} />  // putting by my own. need to be remove maybe.
+
       <h3 style={{ marginTop: '2rem' }}>Summary:</h3>
       <div
         style={{
