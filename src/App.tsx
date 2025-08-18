@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PriorityFlag from './components/PriorityFlag';
 
 function App() {
   const [emailText, setEmailText] = useState('');
