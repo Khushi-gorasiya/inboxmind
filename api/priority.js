@@ -10,14 +10,6 @@ export default async function handler(req, res) {
 
   const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
 
-  const prompt = `
-  Classify the following email as "Important" or "Not Important".
-  Respond ONLY with "Important" or "Not Important".
-
-  Email:
-  ${emailText}
-  `;
-
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -25,7 +17,12 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ inputs: prompt }),
+      body: JSON.stringify({
+        inputs: emailText,
+        parameters: {
+          candidate_labels: ['Important', 'Not Important'],
+        },
+      }),
     });
 
     if (!response.ok) {
@@ -34,10 +31,10 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    const resultText = data[0]?.summary_text?.trim();
+    const label = data?.labels?.[0]; // Highest confidence label
 
-    if (resultText === 'Important' || resultText === 'Not Important') {
-      return res.status(200).json({ priority: resultText });
+    if (label === 'Important' || label === 'Not Important') {
+      return res.status(200).json({ priority: label });
     } else {
       return res.status(200).json({ priority: 'Uncertain' });
     }
