@@ -21,6 +21,7 @@ export default async function handler(req, res) {
         inputs: emailText,
         parameters: {
           candidate_labels: ['Important', 'Not Important'],
+          hypothesis_template: 'This email is {} to the user.',
         },
       }),
     });
@@ -31,12 +32,15 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    const label = data?.labels?.[0]; // Highest confidence label
+    const label = data?.labels?.[0];
+    const score = data?.scores?.[0];
 
-    if (label === 'Important' || label === 'Not Important') {
-      return res.status(200).json({ priority: label });
+    if (label === 'Important' && score >= 0.7) {
+      return res.status(200).json({ priority: 'Important', confidence: score });
+    } else if (label === 'Not Important') {
+      return res.status(200).json({ priority: 'Not Important', confidence: score });
     } else {
-      return res.status(200).json({ priority: 'Uncertain' });
+      return res.status(200).json({ priority: 'Uncertain', confidence: score });
     }
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
