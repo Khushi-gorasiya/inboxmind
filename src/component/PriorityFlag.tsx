@@ -1,50 +1,76 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Props {
   emailText: string;
 }
 
-export default function PriorityFlag({ emailText }: Props) {
-  const [priority, setPriority] = useState<string | null>(null);
+function PriorityFlag({ emailText }: Props) {
+  const [priority, setPriority] = useState('');
+  const [confidence, setConfidence] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const checkPriority = async () => {
-    if (!emailText.trim()) return;
-
-    setLoading(true);
-    setPriority(null);
-
-    try {
-      const response = await fetch('/api/priority', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailText }),
-      });
-
-      const data = await response.json();
-      if (data.priority) {
-        setPriority(data.priority);
-      } else {
-        setPriority('Error');
-      }
-    } catch (err) {
-      setPriority('Error');
+  useEffect(() => {
+    if (!emailText.trim()) {
+      setPriority('');
+      setConfidence(null);
+      return;
     }
 
-    setLoading(false);
+    const getPriority = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/priority', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailText }),
+        });
+
+        const data = await response.json();
+        setPriority(data.priority || 'Uncertain');
+        setConfidence(data.confidence || null);
+      } catch (err) {
+        setPriority('Error');
+        setConfidence(null);
+      }
+      setLoading(false);
+    };
+
+    getPriority();
+  }, [emailText]);
+
+  if (!priority || loading) return null;
+
+  const getColor = () => {
+    switch (priority) {
+      case 'Important':
+        return '#e53935'; // red
+      case 'Not Important':
+        return '#9e9e9e'; // gray
+      case 'Uncertain':
+        return '#fbc02d'; // yellow
+      default:
+        return '#ccc';
+    }
   };
 
   return (
-    <div style={{ marginTop: '1.5rem' }}>
-      <button onClick={checkPriority} disabled={loading || !emailText.trim()} style={{ padding: '8px 16px' }}>
-        {loading ? 'Checking Priority...' : 'Check Priority'}
-      </button>
-
-      {priority && (
-        <div style={{ marginTop: '1rem', fontSize: '18px' }}>
-          Priority: <strong style={{ color: priority === 'Important' ? 'red' : 'gray' }}>{priority}</strong>
-        </div>
-      )}
+    <div
+      style={{
+        marginTop: '1rem',
+        display: 'inline-block',
+        backgroundColor: getColor(),
+        color: 'white',
+        padding: '5px 12px',
+        borderRadius: '16px',
+        fontWeight: 'bold',
+      }}
+    >
+      {priority}
+      {confidence !== null && typeof confidence === 'number'
+        ? ` (${Math.round(confidence * 100)}%)`
+        : ''}
     </div>
   );
 }
+
+export default PriorityFlag;
