@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
+  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
 
   const prompt = `
   Classify the following email as "Important" or "Not Important".
