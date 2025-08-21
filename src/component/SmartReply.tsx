@@ -22,11 +22,7 @@ function SmartReply({ emailText }: Props) {
       });
 
       const data = await res.json();
-      if (data.reply) {
-        setReply(data.reply);
-      } else {
-        setReply('No reply generated.');
-      }
+      setReply(data.reply || 'No reply generated.');
     } catch (err) {
       setReply('Error generating reply.');
     }
