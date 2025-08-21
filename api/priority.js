@@ -18,12 +18,12 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: emailText,
-        parameters: {
-          candidate_labels: ['Important', 'Not Important'],
-          hypothesis_template: 'This email is {} to the user.',
-        },
-      }),
+         inputs: emailText,
+         parameters: {
+           candidate_labels: ['Important', 'Not Important'],
+           hypothesis_template: 'This email is {} for the user’s professional productivity.',
+         },
+       }),
     });
 
     if (!response.ok) {
