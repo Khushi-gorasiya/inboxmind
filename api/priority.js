@@ -21,7 +21,7 @@ export default async function handler(req, res) {
          inputs: emailText,
          parameters: {
            candidate_labels: ['Important', 'Not Important'],
-           hypothesis_template: 'This email is {} for the user’s professional productivity.',
+           hypothesis_template: 'This email is critical to the user’s core work responsibilities: {}',
          },
        }),
     });
