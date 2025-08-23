@@ -25,14 +25,13 @@ function SmartReply({ emailText }: Props) {
 
       const data = await res.json();
 
-      if (data.error) {
-        setError('⚠️ Failed to generate reply.');
-        return;
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to generate reply');
       }
 
-      setReply(data.reply || 'No reply generated.');
-    } catch (err) {
-      setError('⚠️ Network error. Please try again.');
+      setReply(data.reply);
+    } catch (err: any) {
+      setError(err.message || 'Unexpected error occurred');
     }
 
     setLoading(false);
@@ -40,26 +39,25 @@ function SmartReply({ emailText }: Props) {
 
   return (
     <div style={{ marginTop: '2rem' }}>
-      <h3>✍️ Smart Reply Generator</h3>
-
+      <h3>✍️ Smart Reply</h3>
       <button
         onClick={generateReply}
         disabled={loading}
         style={{
-          padding: '10px 18px',
-          backgroundColor: '#007bff',
+          backgroundColor: '#4CAF50',
           color: 'white',
           border: 'none',
-          borderRadius: '5px',
-          cursor: loading ? 'not-allowed' : 'pointer',
+          padding: '10px 20px',
+          fontSize: '16px',
+          cursor: 'pointer',
         }}
       >
         {loading ? 'Generating...' : 'Generate Reply'}
       </button>
 
       {error && (
-        <div style={{ marginTop: '1rem', color: 'red' }}>
-          {error}
+        <div style={{ color: 'red', marginTop: '1rem' }}>
+          ⚠️ {error}
         </div>
       )}
 
@@ -67,56 +65,46 @@ function SmartReply({ emailText }: Props) {
         <div
           style={{
             marginTop: '1rem',
+            backgroundColor: '#e0f7fa',
             padding: '1rem',
-            backgroundColor: '#f0f8ff',
             borderRadius: '8px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}
         >
           <textarea
             value={reply}
             readOnly
-            rows={5}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '15px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              resize: 'vertical',
-              backgroundColor: '#fff',
-            }}
+            rows={4}
+            style={{ width: '100%', fontSize: '14px', padding: '8px' }}
           />
-          <div style={{ marginTop: '0.75rem' }}>
-            <button
-              onClick={() => navigator.clipboard.writeText(reply)}
-              style={{
-                padding: '8px 14px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                marginRight: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              📋 Copy to Clipboard
-            </button>
-            <a
-              href={`mailto:?subject=RE: Your Email&body=${encodeURIComponent(reply)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: '8px 14px',
-                backgroundColor: '#17a2b8',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '5px',
-              }}
-            >
-              ✉️ Open in Gmail
-            </a>
-          </div>
+          <br />
+          <button
+            onClick={() => navigator.clipboard.writeText(reply)}
+            style={{
+              marginTop: '0.5rem',
+              marginRight: '10px',
+              padding: '6px 12px',
+              backgroundColor: '#2196f3',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            📋 Copy
+          </button>
+          <a
+            href={`mailto:?subject=RE: Your Email&body=${encodeURIComponent(reply)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#ff9800',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+            }}
+          >
+            ✉️ Open Gmail
+          </a>
         </div>
       )}
     </div>
