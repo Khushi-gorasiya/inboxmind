@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
-import SmartReply from './component/SmartReply';
+import SmartReply from './component/SmartReply'; // ✅ Import this
 
 function App() {
   const [emailText, setEmailText] = useState('');
@@ -40,83 +40,42 @@ function App() {
   };
 
   return (
-    <div
-      className="App"
-      style={{
-        maxWidth: '800px',
-        margin: '2rem auto',
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        color: '#333',
-      }}
-    >
-      <h1 style={{ textAlign: 'center', marginBottom: '1.5rem' }}>InboxMind</h1>
+    <div className="App" style={{ padding: '2rem', fontFamily: 'Arial' }}>
+      <h1>InboxMind</h1>
 
       <textarea
         rows={10}
+        cols={60}
         placeholder="Paste your email here..."
         value={emailText}
         onChange={(e) => setEmailText(e.target.value)}
-        style={{
-          padding: '12px',
-          fontSize: '16px',
-          width: '100%',
-          boxSizing: 'border-box',
-          borderRadius: '8px',
-          border: '1px solid #ccc',
-          resize: 'vertical',
-          fontFamily: 'inherit',
-        }}
+        style={{ padding: '10px', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
       />
+
+      <br />
 
       <button
         onClick={handleSummarize}
+        style={{ marginTop: '10px', padding: '10px 20px', fontSize: '16px' }}
         disabled={loading}
-        style={{
-          marginTop: '1rem',
-          padding: '12px 24px',
-          fontSize: '16px',
-          fontWeight: '600',
-          color: 'white',
-          backgroundColor: '#007bff',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          transition: 'background-color 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          if (!loading) e.currentTarget.style.backgroundColor = '#0056b3';
-        }}
-        onMouseLeave={(e) => {
-          if (!loading) e.currentTarget.style.backgroundColor = '#007bff';
-        }}
       >
         {loading ? 'Summarizing...' : 'Summarize Email'}
       </button>
 
-      {/* Priority Tag */}
       <PriorityFlag emailText={emailText} />
+      <SmartReply emailText={emailText} /> {/* ✅ New feature */}
 
-      {/* Summary Section */}
-      <section
+      <h3 style={{ marginTop: '2rem' }}>📝 Summary:</h3>
+      <div
         style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '8px',
-          minHeight: '120px',
+          backgroundColor: '#f5f5f5',
+          padding: '10px',
+          minHeight: '100px',
           whiteSpace: 'pre-wrap',
-          boxShadow: 'inset 0 0 5px #ccc',
-          fontSize: '15px',
-          lineHeight: '1.5',
-          color: summary.startsWith('Error') || summary === 'Failed to summarize email.' ? '#d9534f' : '#333',
         }}
       >
-        <h3>Summary:</h3>
-        {summary || 'Your summary will appear here.'}
-      </section>
-
-      {/* Smart Reply */}
-      <SmartReply emailText={emailText} />
+        {summary}
+      </div>
     </div>
   );
 }
