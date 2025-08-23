@@ -1,34 +1,127 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { useState } from 'react';
 
-  const { emailText } = req.body;
-  if (!emailText) {
-    return res.status(400).json({ error: 'Missing emailText' });
-  }
+interface Props {
+  emailText: string;
+}
 
-  try {
-    const response = await fetch('https://api-inference.huggingface.co/models/google/flan-t5-base', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: `Generate a short, polite reply to this email:\n\n${emailText}`,
-      }),
-    });
+function SmartReply({ emailText }: Props) {
+  const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    const data = await response.json();
-    const reply = Array.isArray(data) ? data[0]?.generated_text : data?.generated_text;
-
-    if (!reply) {
-      return res.status(500).json({ error: 'No reply generated' });
+  const generateReply = async () => {
+    if (!emailText.trim()) {
+      setError('Please enter an email first.');
+      return;
     }
 
-    return res.status(200).json({ reply: reply.trim() });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal server error' });
-  }
+    setLoading(true);
+    setReply('');
+    setError('');
+
+    try {
+      const res = await fetch('/api/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailText }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to generate reply.');
+      }
+
+      const data = await res.json();
+      setReply(data.reply || 'No reply generated.');
+    } catch (err: any) {
+      setError(err.message || '⚠️ Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: '2rem' }}>
+      <h3 style={{ fontSize: '20px' }}>✍️ Smart Reply</h3>
+      <button
+        onClick={generateReply}
+        disabled={loading}
+        style={{
+          padding: '10px 20px',
+          fontSize: '16px',
+          backgroundColor: '#1976d2',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {loading ? 'Generating Reply...' : 'Generate Reply'}
+      </button>
+
+      {error && (
+        <div style={{ marginTop: '1rem', color: '#d32f2f' }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {reply && !error && (
+        <div
+          style={{
+            marginTop: '1rem',
+            backgroundColor: '#e3f2fd',
+            padding: '1rem',
+            borderRadius: '8px',
+            boxShadow: '0 0 8px rgba(0,0,0,0.05)',
+          }}
+        >
+          <textarea
+            value={reply}
+            readOnly
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '10px',
+              fontSize: '16px',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              resize: 'vertical',
+            }}
+          />
+          <div style={{ marginTop: '0.5rem' }}>
+            <button
+              onClick={() => navigator.clipboard.writeText(reply)}
+              style={{
+                marginRight: '10px',
+                padding: '8px 12px',
+                backgroundColor: '#4caf50',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              📋 Copy
+            </button>
+            <a
+              href={`mailto:?subject=RE: Your Email&body=${encodeURIComponent(reply)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#f9a825',
+                color: '#fff',
+                textDecoration: 'none',
+                borderRadius: '4px',
+              }}
+            >
+              ✉️ Open Gmail
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
+
+export default SmartReply;
