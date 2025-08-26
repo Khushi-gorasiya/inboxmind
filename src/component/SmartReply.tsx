@@ -74,18 +74,22 @@ function SmartReply({ emailText }: Props) {
           }}
         >
           <textarea
-            value={reply}
-            readOnly
-            rows={4}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '16px',
-              borderRadius: '4px',
-              border: '1px solid #ccc',
-              resize: 'vertical',
-            }}
-          />
+  value={reply}
+  readOnly
+  rows={8} // ⬅️ Increased from 4 to 8
+  style={{
+    width: '100%',
+    padding: '14px',
+    fontSize: '16px',
+    lineHeight: '1.6',
+    borderRadius: '6px',
+    border: '1px solid #aaa',
+    resize: 'vertical',
+    minHeight: '150px', // ⬅️ Add a minimum height
+    backgroundColor: '#f9f9f9',
+  }}
+/>
+
           <div style={{ marginTop: '0.5rem' }}>
             <button
               onClick={() => navigator.clipboard.writeText(reply)}
