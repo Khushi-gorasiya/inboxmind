@@ -4,12 +4,13 @@ export default async function handler(req, res) {
   }
 
   const { emailText } = req.body;
+
   if (!emailText) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
   try {
-    const response = await fetch('https://api.huggingface.co/v1/chat/completions', {
+    const response = await fetch('https://api-inference.huggingface.co/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
@@ -20,11 +21,11 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'user',
-            content: `Generate a short, polite, professional reply to the following email:\n\n"${emailText}"`,
+            content: `Generate a short, polite reply to this email:\n\n"${emailText}"`,
           },
         ],
-        temperature: 0.7,
         max_tokens: 150,
+        temperature: 0.7,
       }),
     });
 
@@ -35,7 +36,6 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content?.trim() || 'No reply generated.';
-
     return res.status(200).json({ reply });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
