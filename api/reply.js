@@ -10,7 +10,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      'https://api-inference.huggingface.co/v1/chat/completions',
+      'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
       {
         method: 'POST',
         headers: {
@@ -18,15 +18,12 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
-          messages: [
-            {
-              role: 'user',
-              content: `Generate a short, polite, professional reply to the following email:\n\n"${emailText}"`,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 150,
+          inputs: `Email: ${emailText}\n\nGenerate a short, polite, professional reply to the above email:`,
+          parameters: {
+            max_new_tokens: 150,
+            temperature: 0.7,
+            return_full_text: false,
+          },
         }),
       }
     );
@@ -39,7 +36,7 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || 'No reply generated.';
+    const reply = data?.[0]?.generated_text?.trim() || 'No reply generated.';
     return res.status(200).json({ reply });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
