@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill';
+  const API_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
 
   try {
     const response = await fetch(API_URL, {
@@ -19,10 +19,11 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: `Generate a short, polite reply to this email:\n${emailText}`,
+        inputs: `User: ${emailText}\nAI:`,
         parameters: {
-          max_new_tokens: 100,
-          do_sample: false,
+          max_new_tokens: 80,
+          do_sample: true,
+          temperature: 0.7,
         },
       }),
     });
@@ -34,7 +35,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    const reply = data.generated_text || 'No reply generated';
+    const reply = typeof data === 'object' && data.generated_text
+      ? data.generated_text.replace(/^.*AI:\s*/, '').trim()
+      : 'No reply generated';
 
     res.status(200).json({ reply });
   } catch (error) {
