@@ -41,89 +41,80 @@ function App() {
 
   return (
     <div
+      className="App"
       style={{
         padding: '2rem',
-        fontFamily: 'Segoe UI, sans-serif',
-        backgroundColor: '#f7f9fc',
-        minHeight: '100vh',
-        width: '100%',
+        fontFamily: 'Arial, sans-serif',
+        maxWidth: '1200px', // Max width for large screens
+        margin: '0 auto', // Center horizontally
+        width: '95%', // Almost full width on small screens
         boxSizing: 'border-box',
       }}
     >
-      <h1 style={{ textAlign: 'center', fontSize: '2.5rem', color: '#333', marginBottom: '2rem' }}>
-        📬 InboxMind
-      </h1>
+      <h1 style={{ textAlign: 'center', marginBottom: '1.5rem' }}>InboxMind</h1>
 
-      <div
+      <textarea
+        rows={12}
+        placeholder="Paste your email here..."
+        value={emailText}
+        onChange={(e) => setEmailText(e.target.value)}
         style={{
+          padding: '12px',
+          fontSize: '16px',
           width: '100%',
-          maxWidth: '1200px',
-          margin: '0 auto',
+          boxSizing: 'border-box',
+          borderRadius: '8px',
+          border: '1px solid #ccc',
+          resize: 'vertical',
+          minHeight: '200px',
+          marginBottom: '1rem',
+          fontFamily: 'inherit',
+        }}
+      />
+
+      <button
+        onClick={handleSummarize}
+        disabled={loading}
+        style={{
+          padding: '12px 24px',
+          fontSize: '16px',
+          backgroundColor: '#1976d2',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          display: 'block',
+          marginBottom: '1.5rem',
+          width: '100%',
+          maxWidth: '300px',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          boxShadow: '0 4px 10px rgba(25, 118, 210, 0.4)',
         }}
       >
-        <label htmlFor="emailInput" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
-          Paste your email here:
-        </label>
-        <textarea
-          id="emailInput"
-          rows={10}
-          placeholder="Paste your email here..."
-          value={emailText}
-          onChange={(e) => setEmailText(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '16px',
-            fontSize: '16px',
-            borderRadius: '8px',
-            border: '1px solid #ccc',
-            marginTop: '8px',
-            marginBottom: '20px',
-            resize: 'vertical',
-          }}
-        />
+        {loading ? 'Summarizing...' : 'Summarize Email'}
+      </button>
 
-        <button
-          onClick={handleSummarize}
-          style={{
-            display: 'inline-block',
-            padding: '12px 24px',
-            fontSize: '16px',
-            backgroundColor: '#1976d2',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            marginBottom: '20px',
-          }}
-          disabled={loading}
-        >
-          {loading ? 'Summarizing...' : '📝 Summarize Email'}
-        </button>
+      <PriorityFlag emailText={emailText} />
+      <SmartReply emailText={emailText} />
 
-        {/* 🚦 Priority Flag */}
-        <PriorityFlag emailText={emailText} />
-
-        {/* ✍️ Smart Reply Generator */}
-        <SmartReply emailText={emailText} />
-
-        {/* 📝 Email Summary */}
-        <h3 style={{ marginTop: '2rem', fontSize: '20px' }}>🧾 Summary:</h3>
-        <div
-          style={{
-            backgroundColor: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            border: '1px solid #ddd',
-            minHeight: '120px',
-            marginTop: '10px',
-            whiteSpace: 'pre-wrap',
-            fontSize: '16px',
-            lineHeight: '1.6',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-          }}
-        >
-          {summary}
-        </div>
+      <h3 style={{ marginTop: '2rem', textAlign: 'center' }}>📝 Summary:</h3>
+      <div
+        style={{
+          backgroundColor: '#f5f5f5',
+          padding: '16px',
+          minHeight: '150px',
+          whiteSpace: 'pre-wrap',
+          borderRadius: '8px',
+          fontSize: '16px',
+          lineHeight: '1.5',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+          width: '100%',
+          boxSizing: 'border-box',
+          marginTop: '0.5rem',
+        }}
+      >
+        {summary}
       </div>
     </div>
   );
