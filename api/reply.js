@@ -4,43 +4,40 @@ export default async function handler(req, res) {
   }
 
   const { emailText } = req.body;
-
   if (!emailText) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
-
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch('https://api.huggingface.co/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: `User: ${emailText}\nAI:`,
-        parameters: {
-          max_new_tokens: 80,
-          do_sample: true,
-          temperature: 0.7,
-        },
+        model: 'deepseek-ai/DeepSeek-V3-Chat',
+        messages: [
+          {
+            role: 'user',
+            content: `Generate a short, polite, professional reply to the following email:\n\n"${emailText}"`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
       }),
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face API error: ${text}` });
+      const errorText = await response.text();
+      return res.status(response.status).json({ error: `Hugging Face API error: ${errorText}` });
     }
 
     const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() || 'No reply generated.';
 
-    const reply = typeof data === 'object' && data.generated_text
-      ? data.generated_text.replace(/^.*AI:\s*/, '').trim()
-      : 'No reply generated';
-
-    res.status(200).json({ reply });
+    return res.status(200).json({ reply });
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    return res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 }
