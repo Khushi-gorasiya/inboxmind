@@ -26,15 +26,12 @@ function SmartReply({ emailText }: Props) {
         body: JSON.stringify({ emailText }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to generate reply.');
-      }
-
       const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Reply generation failed.');
       setReply(data.reply || 'No reply generated.');
     } catch (err: any) {
-      setError(err.message || '⚠️ Network error. Please try again.');
+      setError(err.message || '⚠️ Network error.');
     } finally {
       setLoading(false);
     }
@@ -43,6 +40,7 @@ function SmartReply({ emailText }: Props) {
   return (
     <div style={{ marginTop: '2rem' }}>
       <h3 style={{ fontSize: '20px' }}>✍️ Smart Reply</h3>
+
       <button
         onClick={generateReply}
         disabled={loading}
