@@ -4,34 +4,38 @@ export default async function handler(req, res) {
   }
 
   const { emailText } = req.body;
-
   if (!emailText) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
   try {
-    const response = await fetch('https://api-inference.huggingface.co/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'deepseek-ai/DeepSeek-V3-Chat',
-        messages: [
-          {
-            role: 'user',
-            content: `Generate a short, polite reply to this email:\n\n"${emailText}"`,
-          },
-        ],
-        max_tokens: 150,
-        temperature: 0.7,
-      }),
-    });
+    const response = await fetch(
+      'https://api-inference.huggingface.co/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+          messages: [
+            {
+              role: 'user',
+              content: `Generate a short, polite, professional reply to the following email:\n\n"${emailText}"`,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face API error: ${errorText}` });
+      return res
+        .status(response.status)
+        .json({ error: `Hugging Face API error: ${errorText}` });
     }
 
     const data = await response.json();
