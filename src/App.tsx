@@ -62,9 +62,6 @@ function App() {
         {loading ? 'Summarizing...' : 'Summarize Email'}
       </button>
 
-      <PriorityFlag emailText={emailText} />
-      <SmartReply emailText={emailText} /> {/* ✅ New feature */}
-
       <h3 style={{ marginTop: '2rem' }}>📝 Summary:</h3>
       <div
         style={{
@@ -76,6 +73,11 @@ function App() {
       >
         {summary}
       </div>
+
+      <PriorityFlag emailText={emailText} />
+      <SmartReply emailText={emailText} /> {/* ✅ New feature */}
+
+      
     </div>
   );
 }
