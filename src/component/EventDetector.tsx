@@ -13,13 +13,11 @@ interface EventDetails {
 
 function formatGoogleCalendarDateTime(date: string, time: string) {
   try {
-
     const dateTimeString = `${date} ${time}`;
     const parsedDate = new Date(dateTimeString);
 
     if (isNaN(parsedDate.getTime())) return '';
-
-    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+    return parsedDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   } catch {
     return '';
   }
@@ -29,19 +27,16 @@ function EventDetector({ emailText }: Props) {
   const [loading, setLoading] = useState(false);
   const [isMeeting, setIsMeeting] = useState(false);
   const [details, setDetails] = useState<EventDetails | null>(null);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!emailText.trim()) {
       setIsMeeting(false);
       setDetails(null);
-      setError('');
       return;
     }
 
     const detectEvent = async () => {
       setLoading(true);
-      setError('');
       setIsMeeting(false);
       setDetails(null);
 
@@ -59,12 +54,9 @@ function EventDetector({ emailText }: Props) {
         if (data.isMeeting) {
           setIsMeeting(true);
           setDetails(data.details);
-        } else {
-          setIsMeeting(false);
-          setDetails(null);
         }
-      } catch (err: any) {
-        setError(err.message || 'Network error');
+      } catch {
+        // Silent fail — skip showing anything for errors
       } finally {
         setLoading(false);
       }
@@ -84,7 +76,7 @@ function EventDetector({ emailText }: Props) {
   const start = formatGoogleCalendarDateTime(date, time);
   const endDate = new Date(`${date} ${time}`);
   endDate.setHours(endDate.getHours() + 1);
-  const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  const end = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
