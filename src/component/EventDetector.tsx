@@ -6,18 +6,21 @@ interface Props {
 
 interface EventDetails {
   title?: string;
-  date?: string;
-  time?: string;
+  date?: string; // in YYYY-MM-DD format ideally
+  time?: string; // in HH:mm or HH:mm:ss format ideally
   location?: string;
 }
 
-function formatGoogleCalendarDateTime(date: string, time: string): string {
+// Format date and time to Google Calendar datetime format: YYYYMMDDTHHMMSSZ
+function formatGoogleCalendarDateTime(date: string, time: string) {
   try {
-    if (!date || !time) return '';
-    const dateTimeString = `${date} ${time}`;
+    const dateTimeString = `${date}T${time}`;
     const parsedDate = new Date(dateTimeString);
+
     if (isNaN(parsedDate.getTime())) return '';
-    return parsedDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+    // Return in format like 20250830T100000Z
+    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
   } catch {
     return '';
   }
@@ -27,16 +30,19 @@ function EventDetector({ emailText }: Props) {
   const [loading, setLoading] = useState(false);
   const [isMeeting, setIsMeeting] = useState(false);
   const [details, setDetails] = useState<EventDetails | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!emailText.trim()) {
       setIsMeeting(false);
       setDetails(null);
+      setError('');
       return;
     }
 
     const detectEvent = async () => {
       setLoading(true);
+      setError('');
       setIsMeeting(false);
       setDetails(null);
 
@@ -48,14 +54,18 @@ function EventDetector({ emailText }: Props) {
         });
 
         const data = await res.json();
+
         if (!res.ok) throw new Error(data.error || 'Failed to detect event.');
 
-        if (data.isMeeting && data.details) {
+        if (data.isMeeting) {
           setIsMeeting(true);
           setDetails(data.details);
+        } else {
+          setIsMeeting(false);
+          setDetails(null);
         }
-      } catch (err) {
-        console.error('EventDetector error:', err); // ← log to console but avoid crashing
+      } catch (err: any) {
+        setError(err.message || 'Network error');
       } finally {
         setLoading(false);
       }
@@ -64,26 +74,18 @@ function EventDetector({ emailText }: Props) {
     detectEvent();
   }, [emailText]);
 
-  if (!isMeeting || loading || !details) return null;
+  if (!isMeeting || loading) return null;
 
-  const { title = 'Meeting', date = '', time = '', location = '' } = details;
+  const title = details?.title || 'Meeting';
+  const date = details?.date || '';
+  const time = details?.time || '';
+  const location = details?.location || '';
   const description = emailText;
 
   const start = formatGoogleCalendarDateTime(date, time);
-
-  let end = '';
-  if (start) {
-    try {
-      const endDate = new Date(`${date} ${time}`);
-      endDate.setHours(endDate.getHours() + 1);
-      end = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    } catch {
-      end = '';
-    }
-  }
-
-  // 💡 Don't render anything if dates are invalid
-  if (!start || !end) return null;
+  const endDate = new Date(`${date}T${time}`);
+  endDate.setHours(endDate.getHours() + 1);
+  const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
@@ -109,6 +111,11 @@ function EventDetector({ emailText }: Props) {
       >
         ➕ Add to Google Calendar
       </a>
+      {error && (
+        <div style={{ marginTop: '0.5rem', color: 'red', fontWeight: 'bold' }}>
+          ⚠️ {error}
+        </div>
+      )}
     </div>
   );
 }
