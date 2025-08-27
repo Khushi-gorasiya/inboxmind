@@ -11,11 +11,11 @@ interface EventDetails {
   location?: string;
 }
 
-function formatGoogleCalendarDateTime(date: string, time: string) {
+function formatGoogleCalendarDateTime(date: string, time: string): string {
   try {
+    if (!date || !time) return '';
     const dateTimeString = `${date} ${time}`;
     const parsedDate = new Date(dateTimeString);
-
     if (isNaN(parsedDate.getTime())) return '';
     return parsedDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   } catch {
@@ -48,15 +48,14 @@ function EventDetector({ emailText }: Props) {
         });
 
         const data = await res.json();
-
         if (!res.ok) throw new Error(data.error || 'Failed to detect event.');
 
-        if (data.isMeeting) {
+        if (data.isMeeting && data.details) {
           setIsMeeting(true);
           setDetails(data.details);
         }
-      } catch {
-        // Silent fail — skip showing anything for errors
+      } catch (err) {
+        console.error('EventDetector error:', err); // ← log to console but avoid crashing
       } finally {
         setLoading(false);
       }
@@ -65,18 +64,26 @@ function EventDetector({ emailText }: Props) {
     detectEvent();
   }, [emailText]);
 
-  if (!isMeeting || loading) return null;
+  if (!isMeeting || loading || !details) return null;
 
-  const title = details?.title || 'Meeting';
-  const date = details?.date || '';
-  const time = details?.time || '';
-  const location = details?.location || '';
+  const { title = 'Meeting', date = '', time = '', location = '' } = details;
   const description = emailText;
 
   const start = formatGoogleCalendarDateTime(date, time);
-  const endDate = new Date(`${date} ${time}`);
-  endDate.setHours(endDate.getHours() + 1);
-  const end = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  let end = '';
+  if (start) {
+    try {
+      const endDate = new Date(`${date} ${time}`);
+      endDate.setHours(endDate.getHours() + 1);
+      end = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    } catch {
+      end = '';
+    }
+  }
+
+  // 💡 Don't render anything if dates are invalid
+  if (!start || !end) return null;
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
