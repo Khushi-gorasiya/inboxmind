@@ -6,20 +6,23 @@ interface Props {
 
 interface EventDetails {
   title?: string;
-  date?: string; // YYYY-MM-DD format
-  time?: string; // HH:mm:ss format
+  date?: string;
+  time?: string;
   location?: string;
 }
 
 function formatGoogleCalendarDateTime(date: string, time: string) {
   try {
-    const dateTimeString = `${date}T${time}`;
+    if (!date || !time) return '';
+
+    const dateTimeString = `${date} ${time}`;
     const parsedDate = new Date(dateTimeString);
 
     if (isNaN(parsedDate.getTime())) return '';
 
     return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
-  } catch {
+  } catch (e) {
+    console.error('Date formatting error:', e);
     return '';
   }
 }
@@ -58,7 +61,8 @@ function EventDetector({ emailText }: Props) {
 
         const data = await res.json();
 
-        if (data.isMeeting) {
+        // Defensive checks
+        if (data.isMeeting && data.details && data.details.date && data.details.time) {
           setIsMeeting(true);
           setDetails(data.details);
         } else {
@@ -78,39 +82,36 @@ function EventDetector({ emailText }: Props) {
     detectEvent();
   }, [emailText]);
 
-  if (loading) return <p>Detecting events...</p>;
-
-  if (error) {
-    return (
-      <div style={{ marginTop: '1rem', color: 'red' }}>
-        ⚠️ Event detection error: {error}
-      </div>
-    );
-  }
-
+  if (loading) return <div>Detecting event...</div>;
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
   if (!isMeeting || !details) return null;
 
-  const { title = 'Meeting', date = '', time = '', location = '' } = details;
+  const title = details.title || 'Meeting';
+  const date = details.date || '';
+  const time = details.time || '';
+  const location = details.location || '';
   const description = emailText;
 
   const start = formatGoogleCalendarDateTime(date, time);
-  const endDate = new Date(`${date}T${time}`);
+  if (!start) {
+    console.warn('Invalid start date/time:', date, time);
+    return null;
+  }
+
+  // Add 1 hour for end time if not provided
+  const endDate = new Date(`${date} ${time}`);
+  if (isNaN(endDate.getTime())) {
+    console.warn('Invalid end date/time:', date, time);
+    return null;
+  }
   endDate.setHours(endDate.getHours() + 1);
   const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
 
-  if (!start || !end) {
-    return (
-      <div style={{ marginTop: '1rem', color: 'orange' }}>
-        ⚠️ Invalid event date/time detected.
-      </div>
-    );
-  }
-
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
-  )}&dates=${start}/${end}&details=${encodeURIComponent(
-    description
-  )}&location=${encodeURIComponent(location)}`;
+  )}&dates=${start}/${end}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(
+    location
+  )}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
