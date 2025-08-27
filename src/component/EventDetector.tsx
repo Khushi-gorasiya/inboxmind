@@ -6,12 +6,11 @@ interface Props {
 
 interface EventDetails {
   title?: string;
-  date?: string; // in YYYY-MM-DD format ideally
-  time?: string; // in HH:mm or HH:mm:ss format ideally
+  date?: string; // YYYY-MM-DD format
+  time?: string; // HH:mm:ss format
   location?: string;
 }
 
-// Format date and time to Google Calendar datetime format: YYYYMMDDTHHMMSSZ
 function formatGoogleCalendarDateTime(date: string, time: string) {
   try {
     const dateTimeString = `${date}T${time}`;
@@ -19,7 +18,6 @@ function formatGoogleCalendarDateTime(date: string, time: string) {
 
     if (isNaN(parsedDate.getTime())) return '';
 
-    // Return in format like 20250830T100000Z
     return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
   } catch {
     return '';
@@ -53,9 +51,12 @@ function EventDetector({ emailText }: Props) {
           body: JSON.stringify({ emailText }),
         });
 
-        const data = await res.json();
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to detect event.');
+        }
 
-        if (!res.ok) throw new Error(data.error || 'Failed to detect event.');
+        const data = await res.json();
 
         if (data.isMeeting) {
           setIsMeeting(true);
@@ -65,7 +66,10 @@ function EventDetector({ emailText }: Props) {
           setDetails(null);
         }
       } catch (err: any) {
+        console.error('Event detection error:', err);
         setError(err.message || 'Network error');
+        setIsMeeting(false);
+        setDetails(null);
       } finally {
         setLoading(false);
       }
@@ -74,12 +78,19 @@ function EventDetector({ emailText }: Props) {
     detectEvent();
   }, [emailText]);
 
-  if (!isMeeting || loading) return null;
+  if (loading) return <p>Detecting events...</p>;
 
-  const title = details?.title || 'Meeting';
-  const date = details?.date || '';
-  const time = details?.time || '';
-  const location = details?.location || '';
+  if (error) {
+    return (
+      <div style={{ marginTop: '1rem', color: 'red' }}>
+        ⚠️ Event detection error: {error}
+      </div>
+    );
+  }
+
+  if (!isMeeting || !details) return null;
+
+  const { title = 'Meeting', date = '', time = '', location = '' } = details;
   const description = emailText;
 
   const start = formatGoogleCalendarDateTime(date, time);
@@ -87,11 +98,19 @@ function EventDetector({ emailText }: Props) {
   endDate.setHours(endDate.getHours() + 1);
   const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
 
+  if (!start || !end) {
+    return (
+      <div style={{ marginTop: '1rem', color: 'orange' }}>
+        ⚠️ Invalid event date/time detected.
+      </div>
+    );
+  }
+
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
-  )}&dates=${start}/${end}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(
-    location
-  )}`;
+  )}&dates=${start}/${end}&details=${encodeURIComponent(
+    description
+  )}&location=${encodeURIComponent(location)}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
@@ -111,11 +130,6 @@ function EventDetector({ emailText }: Props) {
       >
         ➕ Add to Google Calendar
       </a>
-      {error && (
-        <div style={{ marginTop: '0.5rem', color: 'red', fontWeight: 'bold' }}>
-          ⚠️ {error}
-        </div>
-      )}
     </div>
   );
 }
