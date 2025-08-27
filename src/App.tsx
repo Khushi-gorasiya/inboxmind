@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
+import EventDetector from './component/EventDetector';
 
 function App() {
   const [emailText, setEmailText] = useState('');
@@ -100,12 +101,6 @@ function App() {
           {loading ? 'Summarizing...' : '📝 Summarize Email'}
         </button>
 
-        {/* 🚦 Priority Flag */}
-        <PriorityFlag emailText={emailText} />
-
-        {/* ✍️ Smart Reply Generator */}
-        <SmartReply emailText={emailText} />
-
         {/* 📝 Email Summary */}
         <h3 style={{ marginTop: '2rem', fontSize: '20px' }}>🧾 Summary:</h3>
         <div
@@ -124,6 +119,16 @@ function App() {
         >
           {summary}
         </div>
+
+        {/* 🚦 Priority Flag */}
+        <PriorityFlag emailText={emailText} />
+
+        {/* ✍️ Smart Reply Generator */}
+        <SmartReply emailText={emailText} />
+
+        {/* Event Detector */}
+        <EventDetector emailText={emailText} />
+        
       </div>
     </div>
   );
