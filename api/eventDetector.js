@@ -1,3 +1,5 @@
+import chrono from 'chrono-node';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -8,47 +10,45 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const HF_API_URL = 'https://api-inference.huggingface.co/models/Thiyaga158/Distilbert_Ner_Model_For_Email_Event_Extraction';
-
   try {
-    const response = await fetch(HF_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ inputs: emailText }),
-    });
+    // Use chrono-node to parse date/time
+    const results = chrono.parse(emailText);
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face error: ${err}` });
+    if (!results.length) {
+      return res.status(200).json({ isMeeting: false });
     }
 
-    const data = await response.json();
+    const parsed = results[0];
+    const startDate = parsed.start?.date();
 
-    // Group tokens by entity
-    const grouped = data.reduce((acc, item) => {
-      const key = item.entity_group || item.entity;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item.word);
-      return acc;
-    }, {});
+    // Optional: check for a range (like 10am–11am)
+    let endDate = null;
+    if (parsed.end) {
+      endDate = parsed.end.date();
+    } else if (startDate) {
+      endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1-hour meeting
+    }
 
-    const clean = (tokens) =>
-      tokens?.join(' ').replace(/\s([.,])/g, '$1').replace(/▁/g, ' ').trim() || '';
+    // Try extracting a location
+    const locationMatch = emailText.match(/(Location|📍)[:\-]?\s*(.*)/i);
+    const location = locationMatch ? locationMatch[2].trim() : '';
 
-    const eventDetails = {
-      title: clean(grouped['EVENT_NAME']),
-      date: clean(grouped['DATE']),
-      time: clean(grouped['TIME']),
-      location: clean(grouped['VENUE']),
+    // Try extracting a title from context
+    const titleMatch = emailText.match(/(?:subject|about|meeting|event)[:\-]?\s*(.*)/i);
+    const title =
+      titleMatch?.[1]?.trim() ||
+      'Meeting'; // Default title if not found
+
+    const details = {
+      title,
+      date: startDate.toDateString(),
+      time: startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      location,
+      startISO: startDate.toISOString(),
+      endISO: endDate.toISOString(),
     };
 
-    const isValid =
-      eventDetails.title || eventDetails.date || eventDetails.time || eventDetails.location;
-
-    return res.status(200).json({ isMeeting: !!isValid, details: eventDetails });
+    return res.status(200).json({ isMeeting: true, details });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
