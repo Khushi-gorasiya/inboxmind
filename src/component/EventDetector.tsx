@@ -5,110 +5,63 @@ interface Props {
   emailText: string;
 }
 
-interface EventDetails {
-  title?: string;
-  date?: string;
-  time?: string;
-  location?: string;
-}
-
-function formatGoogleCalendarDateTime(date: Date) {
-  // Format date object to 'YYYYMMDDTHHmmssZ'
-  return date.toISOString().replace(/-|:|\.\d{3}/g, '');
+function formatDateToGoogleCal(dateObj: Date) {
+  return dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 }
 
 function EventDetector({ emailText }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [isMeeting, setIsMeeting] = useState(false);
-  const [details, setDetails] = useState<EventDetails | null>(null);
-  const [error, setError] = useState('');
+  const [eventInfo, setEventInfo] = useState<{
+    title: string;
+    start: string;
+    end: string;
+    location: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!emailText.trim()) {
-      setIsMeeting(false);
-      setDetails(null);
-      setError('');
+      setEventInfo(null);
       return;
     }
 
-    const detectEvent = async () => {
-      setLoading(true);
-      setError('');
-      setIsMeeting(false);
-      setDetails(null);
+    const parsed = chrono.parse(emailText);
 
-      try {
-        // Call your existing backend API to extract event details
-        const res = await fetch('/api/eventDetector', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailText }),
-        });
+    if (parsed.length > 0) {
+      const first = parsed[0];
+      const startDate = first.start.date();
 
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to detect event.');
-        }
+      // Add 1 hour by default for event duration
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
 
-        const data = await res.json();
+      const start = formatDateToGoogleCal(startDate);
+      const end = formatDateToGoogleCal(endDate);
 
-        if (data.isMeeting && data.details) {
-          setIsMeeting(true);
-          setDetails(data.details);
-        } else {
-          setIsMeeting(false);
-          setDetails(null);
-        }
-      } catch (err: any) {
-        console.error('Event detection error:', err);
-        setError(err.message || 'Network error');
-        setIsMeeting(false);
-        setDetails(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Try to find location from common patterns
+      const locationMatch = emailText.match(/location[:\-]?\s*(.*)/i);
+      const location = locationMatch?.[1]?.split('\n')[0] || '';
 
-    detectEvent();
+      // Title guess (fallback if none): "Meeting"
+      const titleMatch = emailText.match(/subject[:\-]?\s*(.*)/i) ||
+                         emailText.match(/meeting[:\-]?\s*(.*)/i);
+      const title = titleMatch?.[1]?.split('\n')[0] || 'Meeting';
+
+      setEventInfo({
+        title,
+        start,
+        end,
+        location,
+      });
+    } else {
+      setEventInfo(null);
+    }
   }, [emailText]);
 
-  if (loading) return <div>Detecting event...</div>;
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
-  if (!isMeeting || !details) return null;
+  if (!eventInfo) return null;
 
-  const title = details.title || 'Meeting';
-  const location = details.location || '';
-  const description = emailText;
-
-  // Combine date and time fields if possible
-  const dateTimeText = [details.date, details.time].filter(Boolean).join(' ');
-
-  // Use chrono-node to parse natural language date/time
-  const parsedDates = chrono.parse(dateTimeText);
-
-  if (parsedDates.length === 0) {
-    console.warn('Failed to parse date/time:', dateTimeText);
-    return null;
-  }
-
-  const startDate = parsedDates[0].start.date();
-
-  // Determine end date/time: if end is detected in parsing, else +1 hour
-  let endDate = startDate;
-  if (parsedDates[0].end) {
-    endDate = parsedDates[0].end.date();
-  } else {
-    endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
-  }
-
-  const start = formatGoogleCalendarDateTime(startDate);
-  const end = formatGoogleCalendarDateTime(endDate);
-
-  const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
-    title
-  )}&dates=${start}/${end}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(
-    location
-  )}`;
+  const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    eventInfo.title
+  )}&dates=${eventInfo.start}/${eventInfo.end}&location=${encodeURIComponent(
+    eventInfo.location
+  )}&details=${encodeURIComponent(emailText)}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
@@ -118,7 +71,7 @@ function EventDetector({ emailText }: Props) {
         rel="noopener noreferrer"
         style={{
           display: 'inline-block',
-          backgroundColor: '#4285f4',
+          backgroundColor: '#34a853',
           color: 'white',
           padding: '10px 16px',
           borderRadius: '6px',
