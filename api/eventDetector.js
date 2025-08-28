@@ -5,14 +5,14 @@ export default async function handler(req, res) {
 
   const API_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-base';
   const prompt = `
-Extract event details from this email. Format each on its own line with labels exactly like this:
-Title: <...>
-Date: <...>
-Time: <...>
-Location: <...>
+Extract event details in this exact format:
 
-If no event, output:
-No event found.
+Title: <event title>
+Date: <date string>
+Time: <time string>
+Location: <location>
+
+If no event present, reply: No event found.
 
 Email:
 ${emailText}
@@ -38,15 +38,14 @@ ${emailText}
     return res.status(200).json({ isMeeting: false });
   }
 
-  // Parse labeled lines manually
-  const details = {};
-  raw.split('\n').forEach((line) => {
-    const [label, ...rest] = line.split(':');
-    if (label && rest.length > 0) {
-      details[label.trim().toLowerCase()] = rest.join(':').trim();
+  const details: any = {};
+  raw.split('\n').forEach(line => {
+    const [key, ...vals] = line.split(':');
+    if (key && vals.length) {
+      details[key.trim().toLowerCase()] = vals.join(':').trim();
     }
   });
 
-  const isMeeting = details.date || details.time || details.title;
+  const isMeeting = details.date || details.time;
   return res.status(200).json({ isMeeting, details });
 }
