@@ -8,85 +8,47 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
+  const HF_API_URL = 'https://api-inference.huggingface.co/models/Thiyaga158/Distilbert_Ner_Model_For_Email_Event_Extraction';
+
   try {
-    const prompt = `Extract the meeting or event details from this email.
-Respond ONLY in JSON format as follows:
-{
-  "title": "event title",
-  "date": "YYYY-MM-DD or human-readable date",
-  "time": "start time or time range",
-  "location": "location or URL"
-}
-If there is no event, respond with:
-{
-  "title": "",
-  "date": "",
-  "time": "",
-  "location": ""
-}
-
-Email:
-${emailText}`;
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://inboxmind-one.vercel.app/',
       },
-      body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant that extracts event details in JSON only.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
+      body: JSON.stringify({ inputs: emailText }),
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `OpenRouter API error: ${text}` });
+      const err = await response.text();
+      return res.status(response.status).json({ error: `Hugging Face error: ${err}` });
     }
 
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content || '';
 
-    let details = null;
+    // Group tokens by entity
+    const grouped = data.reduce((acc, item) => {
+      const key = item.entity_group || item.entity;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item.word);
+      return acc;
+    }, {});
 
-    try {
-      details = JSON.parse(content);
-    } catch {
-      // Fallback: strip emojis and extract with improved regex
-      const cleanedContent = content.replace(/[^\x00-\x7F]/g, ''); // Remove emojis/non-ascii
+    const clean = (tokens) =>
+      tokens?.join(' ').replace(/\s([.,])/g, '$1').replace(/▁/g, ' ').trim() || '';
 
-      const titleMatch = cleanedContent.match(/title[:\-]?\s*(.*)/i);
-      const dateMatch = cleanedContent.match(/date[:\-]?\s*(.*)/i);
-      const timeMatch = cleanedContent.match(/time[:\-]?\s*([\d:apm\s–-]+)/i); // Accept time ranges
-      const locationMatch = cleanedContent.match(/location[:\-]?\s*(.*)/i);
+    const eventDetails = {
+      title: clean(grouped['EVENT_NAME']),
+      date: clean(grouped['DATE']),
+      time: clean(grouped['TIME']),
+      location: clean(grouped['VENUE']),
+    };
 
-      details = {
-        title: titleMatch ? titleMatch[1].trim() : '',
-        date: dateMatch ? dateMatch[1].trim() : '',
-        time: timeMatch ? timeMatch[1].trim() : '',
-        location: locationMatch ? locationMatch[1].trim() : '',
-      };
-    }
+    const isValid =
+      eventDetails.title || eventDetails.date || eventDetails.time || eventDetails.location;
 
-    const isMeeting =
-      details &&
-      (details.title || details.date || details.time || details.location);
-
-    return res.status(200).json({
-      isMeeting,
-      details,
-    });
+    return res.status(200).json({ isMeeting: !!isValid, details: eventDetails });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
