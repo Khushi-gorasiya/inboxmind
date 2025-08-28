@@ -8,48 +8,45 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const HF_API_URL = 'https://api-inference.huggingface.co/models/Thiyaga158/Distilbert_Ner_Model_For_Email_Event_Extraction';
+  const API_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-large';
 
   try {
-    const response = await fetch(HF_API_URL, {
+    const prompt = `Extract meeting or event details (title, date, time, and location) from the following email. If none, respond with "No event found". Email:\n\n${emailText}`;
+
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ inputs: emailText }),
+      body: JSON.stringify({
+        inputs: prompt,
+      }),
     });
-
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face error: ${err}` });
-    }
 
     const data = await response.json();
 
-    // Group tokens by entity
-    const grouped = data.reduce((acc, item) => {
-      const key = item.entity_group || item.entity;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item.word);
-      return acc;
-    }, {});
+    const raw = data?.[0]?.generated_text || '';
+    if (!raw || raw.toLowerCase().includes('no event')) {
+      return res.status(200).json({ isMeeting: false });
+    }
 
-    const clean = (tokens) =>
-      tokens?.join(' ').replace(/\s([.,])/g, '$1').replace(/▁/g, ' ').trim() || '';
+    // Try extracting fields using basic regex
+    const titleMatch = raw.match(/title[:\-]?\s*(.*)/i);
+    const dateMatch = raw.match(/date[:\-]?\s*(.*)/i);
+    const timeMatch = raw.match(/time[:\-]?\s*(.*)/i);
+    const locationMatch = raw.match(/location[:\-]?\s*(.*)/i);
 
-    const eventDetails = {
-      title: clean(grouped['EVENT_NAME']),
-      date: clean(grouped['DATE']),
-      time: clean(grouped['TIME']),
-      location: clean(grouped['VENUE']),
+    const details = {
+      title: titleMatch ? titleMatch[1].trim() : '',
+      date: dateMatch ? dateMatch[1].trim() : '',
+      time: timeMatch ? timeMatch[1].trim() : '',
+      location: locationMatch ? locationMatch[1].trim() : '',
     };
 
-    const isValid =
-      eventDetails.title || eventDetails.date || eventDetails.time || eventDetails.location;
-
-    return res.status(200).json({ isMeeting: !!isValid, details: eventDetails });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    return res.status(200).json({ isMeeting: true, details });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
