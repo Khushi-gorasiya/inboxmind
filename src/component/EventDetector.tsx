@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import chrono from 'chrono-node';
 
 interface Props {
   emailText: string;
@@ -11,22 +12,9 @@ interface EventDetails {
   location?: string;
 }
 
-function formatGoogleCalendarDateTime(date: string, time: string) {
-  try {
-    if (!date) return '';
-
-    // Combine date and time if time exists, else use date only
-    const dateTimeString = time ? `${date} ${time}` : date;
-    const parsedDate = new Date(dateTimeString);
-
-    if (isNaN(parsedDate.getTime())) return '';
-
-    // Format like 20250830T100000Z (ISO without punctuation)
-    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
-  } catch (e) {
-    console.error('Date formatting error:', e);
-    return '';
-  }
+function formatGoogleCalendarDateTime(date: Date) {
+  // Format date object to 'YYYYMMDDTHHmmssZ'
+  return date.toISOString().replace(/-|:|\.\d{3}/g, '');
 }
 
 function EventDetector({ emailText }: Props) {
@@ -50,6 +38,7 @@ function EventDetector({ emailText }: Props) {
       setDetails(null);
 
       try {
+        // Call your existing backend API to extract event details
         const res = await fetch('/api/eventDetector', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,53 +77,32 @@ function EventDetector({ emailText }: Props) {
   if (!isMeeting || !details) return null;
 
   const title = details.title || 'Meeting';
-  const date = details.date || '';
-  const time = details.time || '';
   const location = details.location || '';
   const description = emailText;
 
-  const start = formatGoogleCalendarDateTime(date, time);
+  // Combine date and time fields if possible
+  const dateTimeText = [details.date, details.time].filter(Boolean).join(' ');
 
-  if (!start) {
-    console.warn('Invalid start date/time:', date, time);
+  // Use chrono-node to parse natural language date/time
+  const parsedDates = chrono.parse(dateTimeText);
+
+  if (parsedDates.length === 0) {
+    console.warn('Failed to parse date/time:', dateTimeText);
     return null;
   }
 
-  // Calculate end time: if time is a range like "10:00 AM – 11:00 AM", try to use the end time,
-  // else default to 1 hour after start
-  let end = '';
-  try {
-    const dateObj = new Date(`${date} ${time.split(/[–-]/)[0].trim()}`);
-    if (isNaN(dateObj.getTime())) {
-      console.warn('Invalid start date/time:', date, time);
-      return null;
-    }
+  const startDate = parsedDates[0].start.date();
 
-    let endDateObj = new Date(dateObj);
-
-    // If time is a range, parse the second time as end
-    if (time.includes('–') || time.includes('-')) {
-      const timeParts = time.split(/[–-]/);
-      const endTimeStr = timeParts[1].trim();
-      const parsedEndDate = new Date(`${date} ${endTimeStr}`);
-      if (!isNaN(parsedEndDate.getTime())) {
-        endDateObj = parsedEndDate;
-      } else {
-        // fallback +1 hour if end time parsing fails
-        endDateObj.setHours(endDateObj.getHours() + 1);
-      }
-    } else {
-      // No range, add 1 hour
-      endDateObj.setHours(endDateObj.getHours() + 1);
-    }
-
-    end = endDateObj.toISOString().replace(/-|:|\.\d{3}/g, '');
-  } catch (e) {
-    console.warn('Error parsing end date/time:', e);
-    // fallback 1 hour after start
-    const fallbackEndDate = new Date(new Date().getTime() + 60 * 60 * 1000);
-    end = fallbackEndDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  // Determine end date/time: if end is detected in parsing, else +1 hour
+  let endDate = startDate;
+  if (parsedDates[0].end) {
+    endDate = parsedDates[0].end.date();
+  } else {
+    endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
   }
+
+  const start = formatGoogleCalendarDateTime(startDate);
+  const end = formatGoogleCalendarDateTime(endDate);
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
