@@ -20,38 +20,23 @@ export default function EventDetector({ emailText }: { emailText: string }) {
         body: JSON.stringify({ emailText }),
       });
       const data = await res.json();
-      if (data.isMeeting) setDetails(data.details);
-      else setDetails(null);
+      setDetails(data.isMeeting ? data.details : null);
     })();
   }, [emailText]);
 
-  if (!details) return null;
+  if (!details || !details.date || !details.time) return null;
 
-  const { title, date, time, location } = details;
+  // Simplify date/time formatting (best effort):
+  const dateStr = details.date.replace(/, /g, '').replace(/ /g, '');
+  const timeStr = details.time.replace(/[^0-9]/g, '').padStart(4, '0');
+  const dateTime = `${dateStr}T${timeStr}`;
 
-  const cleanDate = date ? date.replace(/, /g, '').replace(/ /g, '') : '';
-  const cleanTime = time ? time.replace(/:| |\w{2}/g, '') : '';
-  const dateParam = cleanDate && cleanTime ? `${cleanDate}T${cleanTime}` : '';
-
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title || 'Meeting')}${
-    dateParam ? `&dates=${dateParam}/${dateParam}` : ''
-  }${location ? `&location=${encodeURIComponent(location)}` : ''}&details=${encodeURIComponent(emailText)}`;
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(details.title || 'Meeting')}&dates=${dateTime}/${dateTime}&location=${encodeURIComponent(details.location || '')}&details=${encodeURIComponent(emailText)}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          padding: '10px 16px',
-          backgroundColor: '#4285f4',
-          color: 'white',
-          borderRadius: '6px',
-          textDecoration: 'none',
-          fontWeight: 'bold',
-        }}
-      >
+      <a href={url} target="_blank" rel="noopener noreferrer"
+         style={{ padding: '10px 16px', backgroundColor: '#4285f4', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }}>
         ➕ Add to Google Calendar
       </a>
     </div>
