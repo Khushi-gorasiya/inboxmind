@@ -21,36 +21,22 @@ export default function EventDetector({ emailText }: { emailText: string }) {
       });
       const data = await res.json();
       if (data.isMeeting) setDetails(data.details);
+      else setDetails(null);
     })();
   }, [emailText]);
 
   if (!details) return null;
 
   const { title, date, time, location } = details;
-  const dateParam = encodeURIComponent(`${date} ${time}`.replace(/, /g, 'T').replace(/ /g, ''));
+  // Create a dateParam from date & time; best effort
+  const dateParam = encodeURIComponent(`${date.replace(/\s/g, '')}T${time.replace(/[:\sAPMapm]/g, '')}`);
 
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE
-&text=${encodeURIComponent(title)}
-&dates=${dateParam}/${dateParam}
-&location=${encodeURIComponent(location)}
-&details=${encodeURIComponent(emailText)}`.replace(/\s+/g, '');
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dateParam}/${dateParam}&location=${encodeURIComponent(location)}&details=${encodeURIComponent(emailText)}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'inline-block',
-          backgroundColor: '#4285f4',
-          color: 'white',
-          padding: '10px 16px',
-          borderRadius: '6px',
-          textDecoration: 'none',
-          fontWeight: 'bold',
-        }}
-      >
+      <a href={url} target="_blank" rel="noopener noreferrer"
+         style={{ padding: '10px 16px', backgroundColor: '#4285f4', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }} >
         ➕ Add to Google Calendar
       </a>
     </div>
