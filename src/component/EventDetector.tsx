@@ -1,67 +1,146 @@
 import { useEffect, useState } from 'react';
-import chrono from 'chrono-node';
 
 interface Props {
   emailText: string;
 }
 
-function formatDateToGoogleCal(dateObj: Date) {
-  return dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+interface EventDetails {
+  title?: string;
+  date?: string;
+  time?: string;
+  location?: string;
+}
+
+function formatGoogleCalendarDateTime(date: string, time: string) {
+  try {
+    if (!date) return '';
+
+    // Combine date and time if time exists, else use date only
+    const dateTimeString = time ? `${date} ${time}` : date;
+    const parsedDate = new Date(dateTimeString);
+
+    if (isNaN(parsedDate.getTime())) return '';
+
+    // Format like 20250830T100000Z (ISO without punctuation)
+    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  } catch (e) {
+    console.error('Date formatting error:', e);
+    return '';
+  }
 }
 
 function EventDetector({ emailText }: Props) {
-  const [eventInfo, setEventInfo] = useState<{
-    title: string;
-    start: string;
-    end: string;
-    location: string;
-  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isMeeting, setIsMeeting] = useState(false);
+  const [details, setDetails] = useState<EventDetails | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!emailText.trim()) {
-      setEventInfo(null);
+      setIsMeeting(false);
+      setDetails(null);
+      setError('');
       return;
     }
 
-    const parsed = chrono.parse(emailText);
+    const detectEvent = async () => {
+      setLoading(true);
+      setError('');
+      setIsMeeting(false);
+      setDetails(null);
 
-    if (parsed.length > 0) {
-      const first = parsed[0];
-      const startDate = first.start.date();
+      try {
+        const res = await fetch('/api/eventDetector', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailText }),
+        });
 
-      // Add 1 hour by default for event duration
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to detect event.');
+        }
 
-      const start = formatDateToGoogleCal(startDate);
-      const end = formatDateToGoogleCal(endDate);
+        const data = await res.json();
 
-      // Try to find location from common patterns
-      const locationMatch = emailText.match(/location[:\-]?\s*(.*)/i);
-      const location = locationMatch?.[1]?.split('\n')[0] || '';
+        if (data.isMeeting && data.details) {
+          setIsMeeting(true);
+          setDetails(data.details);
+        } else {
+          setIsMeeting(false);
+          setDetails(null);
+        }
+      } catch (err: any) {
+        console.error('Event detection error:', err);
+        setError(err.message || 'Network error');
+        setIsMeeting(false);
+        setDetails(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Title guess (fallback if none): "Meeting"
-      const titleMatch = emailText.match(/subject[:\-]?\s*(.*)/i) ||
-                         emailText.match(/meeting[:\-]?\s*(.*)/i);
-      const title = titleMatch?.[1]?.split('\n')[0] || 'Meeting';
-
-      setEventInfo({
-        title,
-        start,
-        end,
-        location,
-      });
-    } else {
-      setEventInfo(null);
-    }
+    detectEvent();
   }, [emailText]);
 
-  if (!eventInfo) return null;
+  if (loading) return <div>Detecting event...</div>;
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (!isMeeting || !details) return null;
 
-  const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-    eventInfo.title
-  )}&dates=${eventInfo.start}/${eventInfo.end}&location=${encodeURIComponent(
-    eventInfo.location
-  )}&details=${encodeURIComponent(emailText)}`;
+  const title = details.title || 'Meeting';
+  const date = details.date || '';
+  const time = details.time || '';
+  const location = details.location || '';
+  const description = emailText;
+
+  const start = formatGoogleCalendarDateTime(date, time);
+
+  if (!start) {
+    console.warn('Invalid start date/time:', date, time);
+    return null;
+  }
+
+  // Calculate end time: if time is a range like "10:00 AM – 11:00 AM", try to use the end time,
+  // else default to 1 hour after start
+  let end = '';
+  try {
+    const dateObj = new Date(`${date} ${time.split(/[–-]/)[0].trim()}`);
+    if (isNaN(dateObj.getTime())) {
+      console.warn('Invalid start date/time:', date, time);
+      return null;
+    }
+
+    let endDateObj = new Date(dateObj);
+
+    // If time is a range, parse the second time as end
+    if (time.includes('–') || time.includes('-')) {
+      const timeParts = time.split(/[–-]/);
+      const endTimeStr = timeParts[1].trim();
+      const parsedEndDate = new Date(`${date} ${endTimeStr}`);
+      if (!isNaN(parsedEndDate.getTime())) {
+        endDateObj = parsedEndDate;
+      } else {
+        // fallback +1 hour if end time parsing fails
+        endDateObj.setHours(endDateObj.getHours() + 1);
+      }
+    } else {
+      // No range, add 1 hour
+      endDateObj.setHours(endDateObj.getHours() + 1);
+    }
+
+    end = endDateObj.toISOString().replace(/-|:|\.\d{3}/g, '');
+  } catch (e) {
+    console.warn('Error parsing end date/time:', e);
+    // fallback 1 hour after start
+    const fallbackEndDate = new Date(new Date().getTime() + 60 * 60 * 1000);
+    end = fallbackEndDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  }
+
+  const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
+    title
+  )}&dates=${start}/${end}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(
+    location
+  )}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
@@ -71,7 +150,7 @@ function EventDetector({ emailText }: Props) {
         rel="noopener noreferrer"
         style={{
           display: 'inline-block',
-          backgroundColor: '#34a853',
+          backgroundColor: '#4285f4',
           color: 'white',
           padding: '10px 16px',
           borderRadius: '6px',
