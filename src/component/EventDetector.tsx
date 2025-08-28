@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 interface Details {
-  title: string;
-  date: string;
-  time: string;
-  location: string;
+  title?: string;
+  date?: string;
+  time?: string;
+  location?: string;
 }
 
 export default function EventDetector({ emailText }: { emailText: string }) {
@@ -28,15 +28,30 @@ export default function EventDetector({ emailText }: { emailText: string }) {
   if (!details) return null;
 
   const { title, date, time, location } = details;
-  // Create a dateParam from date & time; best effort
-  const dateParam = encodeURIComponent(`${date.replace(/\s/g, '')}T${time.replace(/[:\sAPMapm]/g, '')}`);
 
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dateParam}/${dateParam}&location=${encodeURIComponent(location)}&details=${encodeURIComponent(emailText)}`;
+  const cleanDate = date ? date.replace(/, /g, '').replace(/ /g, '') : '';
+  const cleanTime = time ? time.replace(/:| |\w{2}/g, '') : '';
+  const dateParam = cleanDate && cleanTime ? `${cleanDate}T${cleanTime}` : '';
+
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title || 'Meeting')}${
+    dateParam ? `&dates=${dateParam}/${dateParam}` : ''
+  }${location ? `&location=${encodeURIComponent(location)}` : ''}&details=${encodeURIComponent(emailText)}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
-      <a href={url} target="_blank" rel="noopener noreferrer"
-         style={{ padding: '10px 16px', backgroundColor: '#4285f4', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }} >
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          padding: '10px 16px',
+          backgroundColor: '#4285f4',
+          color: 'white',
+          borderRadius: '6px',
+          textDecoration: 'none',
+          fontWeight: 'bold',
+        }}
+      >
         ➕ Add to Google Calendar
       </a>
     </div>
