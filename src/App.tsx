@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
 import EventDetector from './component/EventDetector';
