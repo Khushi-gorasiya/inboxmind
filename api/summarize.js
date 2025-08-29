@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
+  const API_URL = 'https://api-inference.huggingface.co/models/google/pegasus-xsum';
 
   try {
     const response = await fetch(API_URL, {
@@ -20,9 +20,9 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         inputs: emailText,
         parameters: {
-          max_length: 130,
-          min_length: 30,
-          do_sample: false,
+          max_length: 250,  // longer max length for fuller summary
+          min_length: 80,   // minimum length for enough detail
+          do_sample: false, // keep deterministic summary; change to true if you want more varied outputs
         },
       }),
     });
