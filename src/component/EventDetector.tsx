@@ -1,58 +1,129 @@
-// src/component/EventDetector.tsx
-
 import { useEffect, useState } from 'react';
 
-interface Details {
+interface Props {
+  emailText: string;
+}
+
+interface EventDetails {
   title?: string;
   date?: string;
   time?: string;
   location?: string;
 }
 
-export default function EventDetector({ emailText }: { emailText: string }) {
-  const [details, setDetails] = useState<Details | null>(null);
+function formatGoogleCalendarDateTime(date: string, time: string) {
+  try {
+    if (!date || !time) return '';
+
+    const dateTimeString = `${date} ${time}`;
+    const parsedDate = new Date(dateTimeString);
+
+    if (isNaN(parsedDate.getTime())) return '';
+
+    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  } catch (e) {
+    console.error('Date formatting error:', e);
+    return '';
+  }
+}
+
+function EventDetector({ emailText }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [isMeeting, setIsMeeting] = useState(false);
+  const [details, setDetails] = useState<EventDetails | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!emailText.trim()) return setDetails(null);
+    if (!emailText.trim()) {
+      setIsMeeting(false);
+      setDetails(null);
+      setError('');
+      return;
+    }
 
-    (async () => {
-      const res = await fetch('/api/eventDetector', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailText }),
-      });
-      const data = await res.json();
-      setDetails(data.isMeeting ? data.details : null);
-    })();
+    const detectEvent = async () => {
+      setLoading(true);
+      setError('');
+      setIsMeeting(false);
+      setDetails(null);
+
+      try {
+        const res = await fetch('/api/eventDetector', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailText }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to detect event.');
+        }
+
+        const data = await res.json();
+
+        // Defensive checks
+        if (data.isMeeting && data.details && data.details.date && data.details.time) {
+          setIsMeeting(true);
+          setDetails(data.details);
+        } else {
+          setIsMeeting(false);
+          setDetails(null);
+        }
+      } catch (err: any) {
+        console.error('Event detection error:', err);
+        setError(err.message || 'Network error');
+        setIsMeeting(false);
+        setDetails(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    detectEvent();
   }, [emailText]);
 
-  if (!details || !details.date) return null;
+  if (loading) return <div>Detecting event...</div>;
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (!isMeeting || !details) return null;
 
-  // Extract time safely: fallback to 09:00 if not found
-  const extractedTime = details.time?.match(/\d{1,2}:\d{2}/)?.[0] || '09:00';
-  const cleanedTime = extractedTime.replace(':', '') + '00';
+  const title = details.title || 'Meeting';
+  const date = details.date || '';
+  const time = details.time || '';
+  const location = details.location || '';
+  const description = emailText;
 
-  // Format date string to YYYYMMDD
-  const parsedDate = new Date(details.date);
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-  const day = String(parsedDate.getDate()).padStart(2, '0');
-  const dateStr = `${year}${month}${day}`;
+  const start = formatGoogleCalendarDateTime(date, time);
+  if (!start) {
+    console.warn('Invalid start date/time:', date, time);
+    return null;
+  }
 
-  const dateTime = `${dateStr}T${cleanedTime}`;
+  // Add 1 hour for end time if not provided
+  const endDate = new Date(`${date} ${time}`);
+  if (isNaN(endDate.getTime())) {
+    console.warn('Invalid end date/time:', date, time);
+    return null;
+  }
+  endDate.setHours(endDate.getHours() + 1);
+  const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
 
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(details.title || 'Meeting')}&dates=${dateTime}/${dateTime}&location=${encodeURIComponent(details.location || '')}&details=${encodeURIComponent(emailText)}`;
+  const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
+    title
+  )}&dates=${start}/${end}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(
+    location
+  )}`;
 
   return (
     <div style={{ marginTop: '1rem' }}>
       <a
-        href={url}
+        href={calendarUrl}
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          padding: '10px 16px',
+          display: 'inline-block',
           backgroundColor: '#4285f4',
-          color: '#fff',
+          color: 'white',
+          padding: '10px 16px',
           borderRadius: '6px',
           textDecoration: 'none',
           fontWeight: 'bold',
@@ -63,3 +134,5 @@ export default function EventDetector({ emailText }: { emailText: string }) {
     </div>
   );
 }
+
+export default EventDetector;
