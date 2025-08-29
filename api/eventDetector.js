@@ -1,5 +1,3 @@
-// api/eventDetector.js
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -10,11 +8,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-large';
+  const API_URL = 'https://api-inference.huggingface.co/models/google/flan‑t5‑large';
 
   try {
     const prompt = `
-Extract the following fields from this email if it is about a meeting or event:
+Extract the following fields from this email if it's about a meeting or event:
 - Title
 - Date (e.g. August 30, 2025)
 - Start Time (e.g. 10:00 AM)
@@ -24,7 +22,7 @@ If no event is found, respond with: "No event found".
 
 Email:
 ${emailText}
-    `;
+`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -35,6 +33,13 @@ ${emailText}
       body: JSON.stringify({ inputs: prompt }),
     });
 
+    //  Ensure response is OK before parsing JSON
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('HuggingFace API error:', errorText);
+      return res.status(response.status).json({ error: `HuggingFace error: ${errorText}` });
+    }
+
     const data = await response.json();
     const raw = data?.[0]?.generated_text || '';
 
@@ -42,7 +47,6 @@ ${emailText}
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Use updated regex
     const titleMatch = raw.match(/title[:\-]?\s*(.*)/i);
     const dateMatch = raw.match(/date[:\-]?\s*(.*)/i);
     const timeMatch = raw.match(/(start\s*time|time)[:\-]?\s*([\d:apm\s\-–]+)/i);
@@ -57,7 +61,7 @@ ${emailText}
 
     return res.status(200).json({ isMeeting: true, details });
   } catch (err) {
-    console.error(err);
+    console.error('eventDetector handler error:', err);
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
