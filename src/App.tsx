@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
 import EventDetector from './component/EventDetector';
@@ -52,7 +52,7 @@ function App() {
       }}
     >
       <h1 style={{ textAlign: 'center', fontSize: '2.5rem', color: '#333', marginBottom: '2rem' }}>
-         InboxMind
+        InboxMind
       </h1>
 
       <div
@@ -126,9 +126,8 @@ function App() {
         {/* ✍️ Smart Reply Generator */}
         <SmartReply emailText={emailText} />
 
-        {/* Event Detector */}
+        {/* 📅 Event Detector */}
         <EventDetector emailText={emailText} />
-        
       </div>
     </div>
   );
