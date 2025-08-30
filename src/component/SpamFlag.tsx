@@ -20,17 +20,18 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
       setLoading(true);
       setError('');
       try {
-        // Hugging Face Model API URL for spam detection (use your own model URL)
-        const response = await fetch('https://api-inference.huggingface.co/models/your-huggingface-model', {
+        // Using the model URL that works for text classification (Spam detection)
+        const response = await fetch('https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your Hugging Face API key
+            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your API key
           },
           body: JSON.stringify({ inputs: emailText }),
         });
 
         const data = await response.json();
+
         if (!response.ok) {
           setError(data.error || 'Failed to detect spam.');
         } else {
@@ -38,7 +39,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           const spamPrediction = data[0]?.label || 'Unknown';
           setSpamStatus(spamPrediction);
         }
-      } catch (err: any) { // Handle unknown errors
+      } catch (err: any) {
         setError(err.message || 'Network error');
       } finally {
         setLoading(false);
