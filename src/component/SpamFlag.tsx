@@ -36,7 +36,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           const spamPrediction = data[0]?.label || 'Unknown';
           setSpamStatus(spamPrediction);
         }
-      } catch (err) {
+      } catch (err: any) { // Assert the error as 'any' to resolve the TS18046
         setError(err.message || 'Network error');
       } finally {
         setLoading(false);
