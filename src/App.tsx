@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SpamFlag from './component/SpamFlag';  // Make sure this path is correct
 
 function App() {
