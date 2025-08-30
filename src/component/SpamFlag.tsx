@@ -24,7 +24,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Add your HuggingFace API Key
+             Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
           },
           body: JSON.stringify({ inputs: emailText }),
         });
