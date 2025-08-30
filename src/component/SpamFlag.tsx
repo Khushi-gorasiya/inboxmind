@@ -1,6 +1,4 @@
-// src/component/SpamFlag.tsx
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Props {
   emailText: string;
@@ -8,35 +6,38 @@ interface Props {
 
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [spamStatus, setSpamStatus] = useState<string>('');
-  const [confidence, setConfidence] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (!emailText.trim()) {
       setSpamStatus('');
-      setConfidence(null);
+      setError('');
       return;
     }
 
     const checkSpam = async () => {
       setLoading(true);
       setError('');
-      setSpamStatus('');
-
       try {
-        const res = await fetch('/api/spamdetector', {
+        const response = await fetch('https://api-inference.huggingface.co/models/your-huggingface-model', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailText }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Add your HuggingFace API Key
+          },
+          body: JSON.stringify({ inputs: emailText }),
         });
 
-        const data = await res.json();
-        setSpamStatus(data.spam || 'Unknown');
-        setConfidence(data.confidence || null);
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.error || 'Failed to detect spam.');
+        } else {
+          const spamPrediction = data[0]?.label || 'Unknown';
+          setSpamStatus(spamPrediction);
+        }
       } catch (err) {
-        setError('Error detecting spam');
-        setSpamStatus('');
+        setError(err.message || 'Network error');
       } finally {
         setLoading(false);
       }
@@ -45,24 +46,23 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     checkSpam();
   }, [emailText]);
 
-  if (loading) return <div>Checking for spam...</div>;
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div>
-      {spamStatus && (
+      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+      {!error && spamStatus && (
         <div
           style={{
-            backgroundColor: spamStatus === 'Spam' ? '#e53935' : '#81c784',
+            marginTop: '1rem',
+            padding: '10px',
+            borderRadius: '8px',
+            backgroundColor: spamStatus === 'Spam' ? '#e53935' : '#4caf50',
             color: 'white',
-            padding: '8px 12px',
-            borderRadius: '16px',
             fontWeight: 'bold',
-            display: 'inline-block',
-            marginTop: '10px',
           }}
         >
-          {spamStatus} {confidence && `(${Math.round(confidence * 100)}%)`}
+          {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
         </div>
       )}
     </div>
