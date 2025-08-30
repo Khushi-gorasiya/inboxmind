@@ -20,11 +20,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
       setLoading(true);
       setError('');
       try {
+        // Hugging Face Model API URL for spam detection (use your own model URL)
         const response = await fetch('https://api-inference.huggingface.co/models/your-huggingface-model', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-             Authorization: `Bearer VITE_HUGGINGFACE_TOKEN`,
+            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your Hugging Face API key
           },
           body: JSON.stringify({ inputs: emailText }),
         });
@@ -33,10 +34,11 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         if (!response.ok) {
           setError(data.error || 'Failed to detect spam.');
         } else {
+          // Assuming the model returns a label (Spam / Not Spam) in the response
           const spamPrediction = data[0]?.label || 'Unknown';
           setSpamStatus(spamPrediction);
         }
-      } catch (err: any) { // Assert the error as 'any' to resolve the TS18046
+      } catch (err: any) { // Handle unknown errors
         setError(err.message || 'Network error');
       } finally {
         setLoading(false);
