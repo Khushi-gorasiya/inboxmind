@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`, // Make sure to set this in your environment variables
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`, // Make sure to set this in your environment variables
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: emailText }),
