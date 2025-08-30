@@ -70,3 +70,4 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
 };
 
 export default SpamFlag;
+
