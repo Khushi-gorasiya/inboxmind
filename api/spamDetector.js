@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your Hugging Face API key
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}, 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
