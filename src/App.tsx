@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
 import EventDetector from './component/EventDetector';
-import SpamDetection from './component/SpamDetection';  // Import the SpamDetection component
+import SpamDetection from './component/SpamDetector';
 
 function App() {
   const [emailText, setEmailText] = useState('');
@@ -122,7 +122,7 @@ function App() {
         </div>
 
         {/* 🛑 Spam Detection Feature */}
-        <SpamDetection emailText={emailText} /> {/* Add the SpamDetection component here */}
+        <SpamDetector emailText={emailText} /> 
 
         {/* 🚦 Priority Flag */}
         <PriorityFlag emailText={emailText} />
