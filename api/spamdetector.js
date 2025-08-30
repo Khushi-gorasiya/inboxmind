@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your HuggingFace API Key
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`, 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: emailText }),
