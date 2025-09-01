@@ -20,14 +20,10 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
       setLoading(true);
       setError('');
       try {
-        // Using the model URL that works for text classification (Spam detection)
-        const response = await fetch('https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta', {
+        const response = await fetch('/api/spamdetector', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer YOUR_HUGGINGFACE_API_KEY`, // Replace with your API key
-          },
-          body: JSON.stringify({ inputs: emailText }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailText }),
         });
 
         const data = await response.json();
@@ -35,9 +31,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         if (!response.ok) {
           setError(data.error || 'Failed to detect spam.');
         } else {
-          // Assuming the model returns a label (Spam / Not Spam) in the response
-          const spamPrediction = data[0]?.label || 'Unknown';
-          setSpamStatus(spamPrediction);
+          setSpamStatus(data.spamStatus || 'Unknown');
         }
       } catch (err: any) {
         setError(err.message || 'Network error');
@@ -60,12 +54,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
             marginTop: '1rem',
             padding: '10px',
             borderRadius: '8px',
-            backgroundColor: spamStatus === 'Spam' ? '#e53935' : '#4caf50',
+            backgroundColor: spamStatus.toLowerCase().includes('spam') ? '#e53935' : '#4caf50',
             color: 'white',
             fontWeight: 'bold',
           }}
         >
-          {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
+          {spamStatus.toLowerCase().includes('spam') ? '⚠️ Spam Detected' : '✅ Not Spam'}
         </div>
       )}
     </div>
