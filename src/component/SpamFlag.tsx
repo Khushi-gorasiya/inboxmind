@@ -3,39 +3,38 @@ import React, { useState, useEffect } from 'react';
 interface Props { emailText: string; }
 
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
-  const [spamStatus, setSpamStatus] = useState('');
-  const [confidence, setConfidence] = useState<number | null>(null);
+  const [spamStatus, setSpamStatus] = useState("");
+  const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!emailText.trim()) {
-      setSpamStatus('');
-      setConfidence(null);
-      setError('');
+      setSpamStatus("");
+      setExplanation("");
+      setError("");
       return;
     }
 
     const checkSpam = async () => {
       setLoading(true);
-      setError('');
-
+      setError("");
       try {
         const res = await fetch('/api/spamdetector', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ emailText }),
         });
-        const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || 'Failed to detect spam');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Spam detection failed");
 
         setSpamStatus(data.spamStatus);
-        setConfidence(data.confidence);
+        setExplanation(data.explanation);
       } catch (err: any) {
         setError(err.message);
-        setSpamStatus('');
-        setConfidence(null);
+        setSpamStatus("");
+        setExplanation("");
       } finally {
         setLoading(false);
       }
@@ -54,12 +53,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           marginTop: '1rem',
           padding: '10px',
           borderRadius: '8px',
-          backgroundColor: spamStatus === 'spam' ? '#e53935' : '#4caf50',
+          backgroundColor: spamStatus === 'Spam' ? '#e53935' : '#4caf50',
           color: 'white',
           fontWeight: 'bold',
         }}>
-          {spamStatus === 'spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
-          {confidence !== null && ` (${(confidence * 100).toFixed(1)}%)`}
+          {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
+          {explanation && <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{explanation}</div>}
         </div>
       )}
     </div>
