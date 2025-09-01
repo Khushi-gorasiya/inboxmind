@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   // New model endpoint
-  const API_URL = 'https://api-inference.huggingface.co/models/spamfighters/bert-base-uncased-finetuned-spam-detection';
+  const API_URL = 'https://huggingface.co/spamfighters/bert-base-uncased-finetuned-spam-detection';
 
   try {
     const response = await fetch(API_URL, {
