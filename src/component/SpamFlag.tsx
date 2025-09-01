@@ -6,12 +6,14 @@ interface Props {
 
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [spamStatus, setSpamStatus] = useState<string>('');
+  const [confidence, setConfidence] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (!emailText.trim()) {
       setSpamStatus('');
+      setConfidence(null);
       setError('');
       return;
     }
@@ -19,30 +21,42 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     const checkSpam = async () => {
       setLoading(true);
       setError('');
-
       try {
-        const response = await fetch('/api/spamdetector', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailText }),
-        });
-
-        const text = await response.text();
-        let data: any;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          throw new Error('Invalid JSON response: ' + text);
-        }
+        const response = await fetch(
+          'https://api-inference.huggingface.co/models/mrm8488/bert-tiny-finetuned-sms-spam-detection',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer VITE_HUGGINGFACE_TOKEN`, // Replace with your API key
+            },
+            body: JSON.stringify({ inputs: emailText }),
+          }
+        );
 
         if (!response.ok) {
-          throw new Error(data.error || 'Error detecting spam');
+          const errText = await response.text();
+          throw new Error(errText || 'Failed to fetch spam status');
         }
 
-        setSpamStatus(data.spamStatus || 'Unknown');
+        const data = await response.json();
+
+        // The model returns an array like: [{label: 'spam', score: 0.95}, {label: 'ham', score: 0.05}]
+        if (Array.isArray(data) && data.length > 0) {
+          // Find spam or ham label with highest score
+          const spamLabel = data.reduce((prev, curr) =>
+            curr.score > prev.score ? curr : prev
+          );
+          setSpamStatus(spamLabel.label === 'ham' ? 'Not Spam' : 'Spam');
+          setConfidence(spamLabel.score);
+        } else {
+          setSpamStatus('Unknown');
+          setConfidence(null);
+        }
       } catch (err: any) {
         setError(err.message || 'Network error');
         setSpamStatus('');
+        setConfidence(null);
       } finally {
         setLoading(false);
       }
@@ -51,7 +65,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     checkSpam();
   }, [emailText]);
 
-  if (loading) return <div>Checking spam...</div>;
+  if (loading) return <div>Checking spam status...</div>;
 
   return (
     <div>
@@ -67,7 +81,8 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
             fontWeight: 'bold',
           }}
         >
-          {spamStatus.toLowerCase() === 'spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
+          {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
+          {confidence !== null ? ` (${(confidence * 100).toFixed(1)}%)` : ''}
         </div>
       )}
     </div>
