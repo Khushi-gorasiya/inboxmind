@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/BobBoris/distilbert-base-uncased-finetuned-spam-detection-dataset-splits';
+  const API_URL = 'https://api-inference.https://huggingface.co/spamfighters/bert-base-uncased-finetuned-spam-detection';
 
   try {
     const response = await fetch(API_URL, {
