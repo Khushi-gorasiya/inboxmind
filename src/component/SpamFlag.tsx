@@ -19,6 +19,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     const checkSpam = async () => {
       setLoading(true);
       setError('');
+
       try {
         const response = await fetch('/api/spamdetector', {
           method: 'POST',
@@ -35,7 +36,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         }
 
         if (!response.ok) {
-          throw new Error(data.error || 'Error calling spam detector');
+          throw new Error(data.error || 'Error detecting spam');
         }
 
         setSpamStatus(data.spamStatus || 'Unknown');
@@ -61,12 +62,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
             marginTop: '1rem',
             padding: '10px',
             borderRadius: '8px',
-            backgroundColor: spamStatus.toLowerCase().includes('spam') ? '#e53935' : '#4caf50',
+            backgroundColor: spamStatus.toLowerCase() === 'spam' ? '#e53935' : '#4caf50',
             color: 'white',
             fontWeight: 'bold',
           }}
         >
-          {spamStatus.toLowerCase().includes('spam') ? '⚠️ Spam Detected' : '✅ Not Spam'}
+          {spamStatus.toLowerCase() === 'spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
         </div>
       )}
     </div>
