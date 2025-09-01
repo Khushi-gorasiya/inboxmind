@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.HF_API_TOKEN}`, // Your API key from Vercel env variables
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`, // Your API key from Vercel env variables
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: emailText }),
