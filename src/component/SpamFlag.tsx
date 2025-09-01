@@ -29,9 +29,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         });
         const data = await res.json();
 
-        if (!res.ok) {
-          throw new Error(data.error || 'Spam detection failed');
-        }
+        if (!res.ok) throw new Error(data.error || 'Error detecting spam');
 
         setSpamStatus(data.spamStatus);
         setReason(data.reason);
