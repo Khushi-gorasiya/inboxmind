@@ -26,15 +26,22 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        const data = await response.json();
+        const text = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error('Invalid JSON response: ' + text);
+        }
 
         if (!response.ok) {
-          setError(data.error || 'Failed to detect spam.');
-        } else {
-          setSpamStatus(data.spamStatus || 'Unknown');
+          throw new Error(data.error || 'Error calling spam detector');
         }
+
+        setSpamStatus(data.spamStatus || 'Unknown');
       } catch (err: any) {
         setError(err.message || 'Network error');
+        setSpamStatus('');
       } finally {
         setLoading(false);
       }
@@ -43,7 +50,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     checkSpam();
   }, [emailText]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div>Checking spam...</div>;
 
   return (
     <div>
