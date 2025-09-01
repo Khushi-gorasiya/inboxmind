@@ -8,13 +8,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/mrm8488/bert-tiny-finetuned-sms-spam-detection';
+  // New model endpoint
+  const API_URL = 'https://api-inference.huggingface.co/models/spamfighters/bert-base-uncased-finetuned-spam-detection';
 
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`, // Ensure this env var is set
+        Authorization: `Bearer ${process.env.HF_API_TOKEN}`, // set in Vercel env vars
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: emailText }),
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: data.error || 'Hugging Face API error' });
     }
 
-    // Expecting an array with a label field, e.g., [{ label: "ham", score: 0.99 }]
+    // Expect format: [{ label: "LABEL", score: 0.xx }]
     const label = Array.isArray(data) && data[0]?.label ? data[0].label : 'Unknown';
 
     return res.status(200).json({ spamStatus: label });
