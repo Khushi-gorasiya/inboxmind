@@ -3,40 +3,34 @@ export default async function handler(req, res) {
   const { emailText } = req.body;
   if (!emailText) return res.status(400).json({ error: 'Missing emailText' });
 
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
-
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
-        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        inputs: emailText,
-        parameters: {
-          candidate_labels: ['spam', 'not spam'],
-          hypothesis_template: 'This text is {}.',
-        },
-      }),
+        model: "mistralai/mistral-7b-instruct", // or another model supported by OpenRouter
+        messages: [
+          { role: "system", content: "You are a smart assistant that classifies emails as spam or not spam." },
+          { role: "user", content: `Classify the following email as "Spam" or "Not Spam". Provide only the label and reasoning.\n\n${emailText}` }
+        ]
+      })
     });
 
-    const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return res.status(500).json({ error: 'Invalid JSON response: ' + text });
-    }
-
+    const data = await response.json();
     if (!response.ok) {
-      return res.status(response.status).json({ error: data.error || 'Error from Hugging Face API' });
+      return res.status(response.status).json({ error: data.error || "OpenRouter error" });
     }
 
-    const label = data.labels?.[0] || 'Unknown';
-    const score = data.scores?.[0] || 0;
-    return res.status(200).json({ spamStatus: label, confidence: score });
+    const content = data.choices[0]?.message?.content || "";
+    const [labelLine, ...rest] = content.split("\n");
+    const label = labelLine.trim().toLowerCase().includes("spam") ? "Spam" : "Not Spam";
+    const explanation = rest.join("\n").trim();
+
+    return res.status(200).json({ spamStatus: label, explanation });
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
   }
 }
