@@ -1,19 +1,10 @@
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { emailText } = req.body;
-  if (!emailText) {
-    return res.status(400).json({ error: 'Missing emailText in request body' });
-  }
-
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
+  if (!emailText?.trim()) return res.status(400).json({ error: 'Missing emailText' });
 
   try {
-    const prompt = `Is this email about a meeting or event? If yes, extract the title, date, time, and location. Email:\n\n${emailText}`;
-
-    const response = await fetch(API_URL, {
+    const classifyRes = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-mnli', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
@@ -27,22 +18,12 @@ export default async function handler(req, res) {
         },
       }),
     });
+    if (!classifyRes.ok) throw new Error(await classifyRes.text());
+    const classifyData = await classifyRes.json();
+    const [label, score] = [classifyData.labels?.[0], classifyData.scores?.[0]];
+    if (label !== 'Meeting' || score < 0.7) return res.status(200).json({ isMeeting: false });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face API error: ${text}` });
-    }
-
-    const data = await response.json();
-    const label = data?.labels?.[0];
-    const score = data?.scores?.[0];
-
-    if (label !== 'Meeting' || score < 0.7) {
-      // Not confident that it's a meeting
-      return res.status(200).json({ isMeeting: false });
-    }
-
-    const extractResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const extractRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -51,51 +32,30 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'mistralai/mistral-7b-instruct',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant that extracts meeting or event details from an email.',
-          },
-          {
-            role: 'user',
-            content: `Extract the meeting or event title, date, time, and location from this email. If not found, respond with "No event found". Email:\n\n${emailText}`,
-          },
+          { role: 'system', content: 'Extract meeting title, date, time, and location from the email.' },
+          { role: 'user', content: emailText },
         ],
       }),
     });
+    if (!extractRes.ok) throw new Error(await extractRes.text());
+    const extractData = await extractRes.json();
+    const content = extractData.choices?.[0]?.message?.content || '';
+    if (content.toLowerCase().includes('no event found')) return res.status(200).json({ isMeeting: false });
 
-    if (!extractResponse.ok) {
-      const text = await extractResponse.text();
-      return res.status(extractResponse.status).json({ error: `OpenRouter API error: ${text}` });
-    }
-
-    const extractData = await extractResponse.json();
-    const content = extractData?.choices?.[0]?.message?.content || '';
-
-    if (content.toLowerCase().includes('no event found')) {
-      return res.status(200).json({ isMeeting: false });
-    }
-
-    let details = null;
-
+    let details;
     try {
       details = JSON.parse(content);
     } catch {
-      
-      const titleMatch = content.match(/title[:\-]\s*(.*)/i);
-      const dateMatch = content.match(/date[:\-]\s*(.*)/i);
-      const timeMatch = content.match(/time[:\-]\s*(.*)/i);
-      const locationMatch = content.match(/location[:\-]\s*(.*)/i);
-
+      const match = (label) => (new RegExp(`${label}[:\\-]\\s*(.*)`, 'i').exec(content)?.[1] || '');
       details = {
-        title: titleMatch ? titleMatch[1].trim() : '',
-        date: dateMatch ? dateMatch[1].trim() : '',
-        time: timeMatch ? timeMatch[1].trim() : '',
-        location: locationMatch ? locationMatch[1].trim() : '',
+        title: match('title'),
+        date: match('date'),
+        time: match('time'),
+        location: match('location'),
       };
     }
-
-    return res.status(200).json({ isMeeting: true, details });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    res.status(200).json({ isMeeting: true, details });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
