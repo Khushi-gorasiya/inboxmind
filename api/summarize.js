@@ -4,14 +4,12 @@ export default async function handler(req, res) {
   }
 
   const { emailText } = req.body;
-  if (!emailText) {
+  if (!emailText?.trim()) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
+  const safeText = emailText.slice(0, 2000); // prevent model overload
   const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
-
-  // Limit input length to ~2000 characters to prevent "index out of range" error
-  const safeText = emailText.slice(0, 2000);
 
   try {
     const response = await fetch(API_URL, {
@@ -23,28 +21,24 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         inputs: safeText,
         parameters: {
-          max_length: 200,   // You can adjust this value
+          max_length: 200,
           min_length: 50,
           do_sample: false,
-          truncation: true, // important to avoid model errors
+          truncation: true,
         },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face API error: ${errorText}` });
+      return res.status(response.status).json({ error: `Hugging Face error: ${errorText}` });
     }
 
     const data = await response.json();
+    const summary = Array.isArray(data) ? data[0]?.summary_text : data?.summary_text;
 
-    const summary =
-      Array.isArray(data) && data[0]?.summary_text
-        ? data[0].summary_text
-        : data?.summary_text || 'No summary returned.';
-
-    return res.status(200).json({ summary });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    res.status(200).json({ summary: summary || 'No summary returned.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
