@@ -1,5 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
-import debounce from 'lodash.debounce';
+import { useState } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
 import EventDetector from './component/EventDetector';
@@ -7,19 +6,8 @@ import SpamFlag from './component/SpamFlag';
 
 function App() {
   const [emailText, setEmailText] = useState('');
-  const [debouncedText, setDebouncedText] = useState('');
   const [summary, setSummary] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Debounce logic
-  const debounced = useMemo(() => debounce((text: string) => {
-    setDebouncedText(text);
-  }, 500), []);
-
-  useEffect(() => {
-    debounced(emailText);
-    return () => debounced.cancel();
-  }, [emailText]);
 
   const handleSummarize = async () => {
     if (!emailText.trim()) {
@@ -54,24 +42,27 @@ function App() {
   };
 
   return (
-    <div style={{
-      padding: '2rem',
-      fontFamily: 'Segoe UI, sans-serif',
-      backgroundColor: '#f7f9fc',
-      minHeight: '100vh',
-      width: '100%',
-      boxSizing: 'border-box',
-    }}>
-      <h1 style={{
-        textAlign: 'center',
-        fontSize: '2.5rem',
-        color: '#333',
-        marginBottom: '2rem'
-      }}>
+    <div
+      style={{
+        padding: '2rem',
+        fontFamily: 'Segoe UI, sans-serif',
+        backgroundColor: '#f7f9fc',
+        minHeight: '100vh',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      <h1 style={{ textAlign: 'center', fontSize: '2.5rem', color: '#333', marginBottom: '2rem' }}>
         InboxMind
       </h1>
 
-      <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto' }}>
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '1200px',
+          margin: '0 auto',
+        }}
+      >
         <label htmlFor="emailInput" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
           Paste your email here:
         </label>
@@ -111,28 +102,37 @@ function App() {
           {loading ? 'Summarizing...' : '📝 Summarize Email'}
         </button>
 
-        {/* Summary Box */}
+        {/* 📝 Email Summary */}
         <h3 style={{ marginTop: '2rem', fontSize: '20px' }}>🧾 Summary:</h3>
-        <div style={{
-          backgroundColor: '#fff',
-          padding: '16px',
-          borderRadius: '8px',
-          border: '1px solid #ddd',
-          minHeight: '120px',
-          marginTop: '10px',
-          whiteSpace: 'pre-wrap',
-          fontSize: '16px',
-          lineHeight: '1.6',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-        }}>
+        <div
+          style={{
+            backgroundColor: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '1px solid #ddd',
+            minHeight: '120px',
+            marginTop: '10px',
+            whiteSpace: 'pre-wrap',
+            fontSize: '16px',
+            lineHeight: '1.6',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+          }}
+        >
           {summary}
         </div>
 
-        {/* Components using debouncedText */}
-        <PriorityFlag emailText={debouncedText} />
-        <SmartReply emailText={debouncedText} />
-        <EventDetector emailText={debouncedText} />
-        <SpamFlag emailText={debouncedText} />
+        {/* 🚦 Priority Flag */}
+        <PriorityFlag emailText={emailText} />
+
+        {/* ✍️ Smart Reply Generator */}
+        <SmartReply emailText={emailText} />
+
+        {/* 📅 Event Detector */}
+        <EventDetector emailText={emailText} />
+
+        {/* Spam Detection Feature */}
+        <SpamFlag emailText={emailText} />
+        
       </div>
     </div>
   );
