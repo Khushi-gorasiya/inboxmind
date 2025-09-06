@@ -38,27 +38,25 @@ function App() {
       body: JSON.stringify({ emailText }),
     });
 
-    const text = await response.text();
+    const contentType = response.headers.get('content-type');
 
-    // Debug: log response text to see what we got
-    console.log('Response text:', text);
+    // If response is HTML or plain text (not JSON), treat it as error
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
 
-    // Attempt to parse JSON
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Not JSON: Check if it contains 504 Gateway Timeout message
-      if (text.includes('504') || text.toLowerCase().includes('gateway timeout')) {
-        setSummary('Error: The summarization service timed out. Please try again later.');
+      if (text.includes('504') && text.toLowerCase().includes('gateway timeout')) {
+        setSummary('⚠️ Error: The summarization service timed out. Please try again shortly.');
       } else {
-        setSummary('Error: Unexpected response from the summarization service.');
+        setSummary('⚠️ Error: Unexpected error from the summarization service.');
       }
+
       setLoading(false);
       return;
     }
 
-    // Handle JSON response
+    // Proceed if content is JSON
+    const data = await response.json();
+
     if (!response.ok) {
       setSummary(`Error: ${data.error || 'Summarization failed.'}`);
     } else if (data.summary) {
@@ -68,10 +66,11 @@ function App() {
     }
   } catch (err: any) {
     setSummary(`Error: ${err.message || 'Failed to summarize email.'}`);
+  } finally {
+    setLoading(false);
   }
-
-  setLoading(false);
 };
+
 
   
   return (
