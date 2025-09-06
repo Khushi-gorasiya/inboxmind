@@ -40,20 +40,25 @@ function App() {
 
     const text = await response.text();
 
-    // Try to parse JSON, fallback if not JSON (e.g., HTML error page)
+    // Debug: log response text to see what we got
+    console.log('Response text:', text);
+
+    // Attempt to parse JSON
     let data;
     try {
       data = JSON.parse(text);
-    } catch {
-      // If it's HTML and contains 504 error info, show friendly message
+    } catch (e) {
+      // Not JSON: Check if it contains 504 Gateway Timeout message
       if (text.includes('504') && text.toLowerCase().includes('gateway timeout')) {
         setSummary('Error: The summarization service timed out. Please try again later.');
       } else {
         setSummary('Error: Unexpected response from the summarization service.');
       }
+      setLoading(false);
       return;
     }
 
+    // Handle JSON response
     if (!response.ok) {
       setSummary(`Error: ${data.error || 'Summarization failed.'}`);
     } else if (data.summary) {
@@ -67,6 +72,7 @@ function App() {
 
   setLoading(false);
 };
+
   
   return (
     <div
