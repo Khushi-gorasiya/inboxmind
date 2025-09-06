@@ -22,38 +22,52 @@ function App() {
     return () => clearTimeout(handler);
   }, [emailText]);
 
-  const handleSummarize = async () => {
-    if (!emailText.trim()) {
-      setSummary('Please enter an email to summarize.');
+ const handleSummarize = async () => {
+  if (!emailText.trim()) {
+    setSummary('Please enter an email to summarize.');
+    return;
+  }
+
+  setLoading(true);
+  setSummary('');
+
+  try {
+    const response = await fetch('/api/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailText }),
+    });
+
+    const text = await response.text();
+
+    // Try to parse JSON, fallback if not JSON (e.g., HTML error page)
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // If it's HTML and contains 504 error info, show friendly message
+      if (text.includes('504') && text.toLowerCase().includes('gateway timeout')) {
+        setSummary('Error: The summarization service timed out. Please try again later.');
+      } else {
+        setSummary('Error: Unexpected response from the summarization service.');
+      }
       return;
     }
 
-    setLoading(true);
-    setSummary('');
-
-    try {
-      const response = await fetch('/api/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailText }),
-      });
-
-      const data = await response.json();
-
-      if (data.error) {
-        setSummary(`Error: ${data.error}`);
-      } else if (data.summary) {
-        setSummary(data.summary);
-      } else {
-        setSummary('No summary returned.');
-      }
-    } catch (err) {
-      setSummary('Failed to summarize email.');
+    if (!response.ok) {
+      setSummary(`Error: ${data.error || 'Summarization failed.'}`);
+    } else if (data.summary) {
+      setSummary(data.summary);
+    } else {
+      setSummary('No summary returned.');
     }
+  } catch (err: any) {
+    setSummary(`Error: ${err.message || 'Failed to summarize email.'}`);
+  }
 
-    setLoading(false);
-  };
-
+  setLoading(false);
+};
+  
   return (
     <div
       style={{
