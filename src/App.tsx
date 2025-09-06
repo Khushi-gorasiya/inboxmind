@@ -49,7 +49,7 @@ function App() {
       data = JSON.parse(text);
     } catch (e) {
       // Not JSON: Check if it contains 504 Gateway Timeout message
-      if (text.includes('504') && text.toLowerCase().includes('gateway timeout')) {
+      if (text.includes('504') || text.toLowerCase().includes('gateway timeout')) {
         setSummary('Error: The summarization service timed out. Please try again later.');
       } else {
         setSummary('Error: Unexpected response from the summarization service.');
