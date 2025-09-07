@@ -14,10 +14,13 @@ interface EventDetails {
 function formatGoogleCalendarDateTime(date: string, time: string) {
   try {
     if (!date || !time) return '';
+
     const dateTimeString = `${date} ${time}`;
     const parsedDate = new Date(dateTimeString);
+
     if (isNaN(parsedDate.getTime())) return '';
-    return parsedDate.toISOString().replace(/[-:]/g, '').split('.')[0]; // Remove milliseconds
+
+    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
   } catch (e) {
     console.error('Date formatting error:', e);
     return '';
@@ -58,6 +61,7 @@ function EventDetector({ emailText }: Props) {
 
         const data = await res.json();
 
+        // Defensive checks
         if (data.isMeeting && data.details && data.details.date && data.details.time) {
           setIsMeeting(true);
           setDetails(data.details);
@@ -89,13 +93,19 @@ function EventDetector({ emailText }: Props) {
   const description = emailText;
 
   const start = formatGoogleCalendarDateTime(date, time);
-  if (!start) return null;
+  if (!start) {
+    console.warn('Invalid start date/time:', date, time);
+    return null;
+  }
 
+  // Add 1 hour for end time if not provided
   const endDate = new Date(`${date} ${time}`);
-  if (isNaN(endDate.getTime())) return null;
-
+  if (isNaN(endDate.getTime())) {
+    console.warn('Invalid end date/time:', date, time);
+    return null;
+  }
   endDate.setHours(endDate.getHours() + 1);
-  const end = endDate.toISOString().replace(/[-:]/g, '').split('.')[0];
+  const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
