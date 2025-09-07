@@ -4,7 +4,7 @@ import SmartReply from './component/SmartReply';
 import EventDetector from './component/EventDetector';
 import SpamFlag from './component/SpamFlag';
 import ToneAnalyzer from './component/ToneAnalyzer';
-import FollowUpReminder from './component/FollowUpReminder';
+//import FollowUpReminder from './component/FollowUpReminder';
 
 function App() {
   const [emailText, setEmailText] = useState('');
@@ -166,7 +166,7 @@ function App() {
         <EventDetector emailText={debouncedText} />
         <SpamFlag emailText={debouncedText} />
         <ToneAnalyzer emailText={debouncedText} />
-        <FollowUpReminder emailText={debouncedText} />
+        //<FollowUpReminder emailText={debouncedText} />
       </div>
     </div>
   );
