@@ -1,66 +1,135 @@
-/* App Container */
+/* Root container */
 #root {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  align-items: stretch;
+  background: linear-gradient(135deg, #6366f1, #3b82f6, #06b6d4);
+  background-size: 400% 400%;
+  animation: gradientShift 12s ease infinite;
+  color: var(--color-text-dark);
+  font-family: var(--font-main);
 }
 
-/* Logo */
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 0.3s ease;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 1rem rgba(99, 102, 241, 0.7));
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 1rem rgba(97, 218, 251, 0.7));
+/* Animated gradient background */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-/* Card Styling */
-.card {
-  padding: 2rem;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+/* Navbar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.navbar a {
+  color: white;
+  margin: 0 1rem;
+  position: relative;
+  text-decoration: none;
+}
+.navbar a::after {
+  content: "";
+  position: absolute;
+  width: 0%;
+  height: 2px;
+  left: 0;
+  bottom: -4px;
+  background: white;
+  transition: width 0.3s ease;
+}
+.navbar a:hover::after {
+  width: 100%;
+}
+
+/* Hero section */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 4rem 2rem;
+  color: white;
+}
+.hero h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.hero p {
+  max-width: 700px;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+/* Button styles */
+.btn {
+  margin-top: 2rem;
+  padding: 0.9rem 2rem;
+  border-radius: 12px;
+  background: white;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
   transition: all 0.3s ease;
 }
-.card:hover {
+.btn:hover {
+  background: #f1f5f9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Feature grid */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  padding: 4rem 2rem;
+}
+.feature-card {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2rem;
+  border-radius: 16px;
+  color: white;
+  text-align: left;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+.feature-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+}
+.feature-card h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+.feature-card p {
+  font-size: 1rem;
+  opacity: 0.9;
 }
 
-/* Read the Docs link */
-.read-the-docs {
-  color: var(--color-muted);
-  font-size: 0.95rem;
-  transition: color 0.3s ease;
-}
-.read-the-docs:hover {
-  color: var(--color-primary);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  #root {
-    padding: 1rem;
-    gap: 1.5rem;
-  }
-
-  .card {
-    padding: 1.5rem;
-  }
-
-  .logo {
-    height: 4.5em;
-    padding: 1em;
-  }
+/* Footer */
+.footer {
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.25);
+  color: white;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
 }
