@@ -1,3 +1,4 @@
+// src/component/SpamFlag.tsx
 import React, { useState, useEffect } from 'react';
 
 interface Props {
