@@ -5,6 +5,28 @@ interface Props {
   emailText: string;
 }
 
+// Simple helper to strip HTML tags
+function stripHtmlTags(input: string) {
+  return input.replace(/<\/?[^>]+(>|$)/g, '');
+}
+
+// Optional: clean common markdown-like artifacts (you can customize)
+function cleanText(input: string) {
+  let cleaned = input;
+
+  // Remove strike-through markdown tags like <s>...</s> or ~~~
+  cleaned = cleaned.replace(/<\/?s>/g, '');
+  cleaned = cleaned.replace(/~~/g, '');
+
+  // Remove [OUT] or similar bracketed tags if you want
+  cleaned = cleaned.replace(/\[.*?\]/g, '');
+
+  // Remove leftover multiple spaces/newlines
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+
+  return cleaned;
+}
+
 function ToneAnalyzer({ emailText }: Props) {
   const [tone, setTone] = useState('');
   const [explanation, setExplanation] = useState('');
@@ -38,8 +60,9 @@ function ToneAnalyzer({ emailText }: Props) {
           throw new Error(data.error || 'Failed to analyze tone');
         }
 
-        setTone(data.tone);
-        setExplanation(data.explanation);
+        // Sanitize the tone and explanation before setting
+        setTone(cleanText(stripHtmlTags(data.tone || '')));
+        setExplanation(cleanText(stripHtmlTags(data.explanation || '')));
       } catch (err: any) {
         setError(err.message || 'Network error');
       } finally {
