@@ -5,26 +5,9 @@ interface Props {
   emailText: string;
 }
 
-// Simple helper to strip HTML tags
-function stripHtmlTags(input: string) {
-  return input.replace(/<\/?[^>]+(>|$)/g, '');
-}
-
-// Optional: clean common markdown-like artifacts (you can customize)
-function cleanText(input: string) {
-  let cleaned = input;
-
-  // Remove strike-through markdown tags like <s>...</s> or ~~~
-  cleaned = cleaned.replace(/<\/?s>/g, '');
-  cleaned = cleaned.replace(/~~/g, '');
-
-  // Remove [OUT] or similar bracketed tags if you want
-  cleaned = cleaned.replace(/\[.*?\]/g, '');
-
-  // Remove leftover multiple spaces/newlines
-  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
-
-  return cleaned;
+interface ToneData {
+  tone: string;
+  explanation: string;
 }
 
 function ToneAnalyzer({ emailText }: Props) {
@@ -32,6 +15,16 @@ function ToneAnalyzer({ emailText }: Props) {
   const [explanation, setExplanation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Helper to extract JSON from markdown code block
+  function extractJSON(text: string): string | null {
+    // Matches ```json ... ```
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return null;
+  }
 
   useEffect(() => {
     if (!emailText.trim()) {
@@ -54,15 +47,28 @@ function ToneAnalyzer({ emailText }: Props) {
           body: JSON.stringify({ emailText }),
         });
 
-        const data = await res.json();
+        const text = await res.text();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to analyze tone');
+          throw new Error(text || 'Failed to analyze tone');
         }
 
-        // Sanitize the tone and explanation before setting
-        setTone(cleanText(stripHtmlTags(data.tone || '')));
-        setExplanation(cleanText(stripHtmlTags(data.explanation || '')));
+        // Extract JSON string from markdown block
+        const jsonString = extractJSON(text);
+
+        if (!jsonString) {
+          throw new Error('Could not find JSON data in response');
+        }
+
+        let data: ToneData;
+        try {
+          data = JSON.parse(jsonString);
+        } catch {
+          throw new Error('Invalid JSON format in response');
+        }
+
+        setTone(data.tone);
+        setExplanation(data.explanation);
       } catch (err: any) {
         setError(err.message || 'Network error');
       } finally {
