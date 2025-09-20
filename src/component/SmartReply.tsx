@@ -5,6 +5,14 @@ interface Props {
   emailText: string;
 }
 
+function cleanReplyText(text: string) {
+  return text
+    .replace(/<[^>]*>/g, '')             // Remove HTML-like tags e.g., <s>
+    .replace(/\[OUT\]/gi, '')            // Remove [OUT] token if any
+    .replace(/\[[^\]]+\]/g, '')          // Remove other square bracket placeholders e.g., [Manager's Name]
+    .trim();
+}
+
 function SmartReply({ emailText }: Props) {
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,7 +38,9 @@ function SmartReply({ emailText }: Props) {
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'Reply generation failed.');
-      setReply(data.reply || 'No reply generated.');
+
+      // Clean the reply before setting
+      setReply(cleanReplyText(data.reply || 'No reply generated.'));
     } catch (err: any) {
       setError(err.message || '⚠️ Network error.');
     } finally {
@@ -75,21 +85,21 @@ function SmartReply({ emailText }: Props) {
           }}
         >
           <textarea
-  value={reply}
-  readOnly
-  rows={8} // ⬅️ Increased from 4 to 8
-  style={{
-    width: '100%',
-    padding: '14px',
-    fontSize: '16px',
-    lineHeight: '1.6',
-    borderRadius: '6px',
-    border: '1px solid #aaa',
-    resize: 'vertical',
-    minHeight: '150px', // ⬅️ Add a minimum height
-    backgroundColor: '#f9f9f9',
-  }}
-/>
+            value={reply}
+            readOnly
+            rows={8}
+            style={{
+              width: '100%',
+              padding: '14px',
+              fontSize: '16px',
+              lineHeight: '1.6',
+              borderRadius: '6px',
+              border: '1px solid #aaa',
+              resize: 'vertical',
+              minHeight: '150px',
+              backgroundColor: '#f9f9f9',
+            }}
+          />
 
           <div style={{ marginTop: '0.5rem' }}>
             <button
