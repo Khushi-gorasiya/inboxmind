@@ -1,3 +1,4 @@
+// src/component/SmartReply.tsx
 import { useState } from 'react';
 
 interface Props {
