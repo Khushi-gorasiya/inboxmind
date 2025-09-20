@@ -1,3 +1,4 @@
+// src/component/ToneAnalyzer.tsx
 import { useEffect, useState } from 'react';
 
 interface Props {
