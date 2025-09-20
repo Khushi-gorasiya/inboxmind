@@ -5,42 +5,42 @@ interface Props {
   emailText: string;
 }
 
-function formatDate(isoString: string | null) {
-  if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch {
-    return '';
-  }
+interface FollowUpData {
+  needsFollowUp: boolean;
+  followUpBy: string;
+  reason: string;
 }
 
 function FollowUpReminder({ emailText }: Props) {
+  const [followUpData, setFollowUpData] = useState<FollowUpData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [needsFollowUp, setNeedsFollowUp] = useState(false);
-  const [followUpBy, setFollowUpBy] = useState<string | null>(null);
-  const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+
+  // Helper to clean markdown and tags
+  function cleanResponse(text: string) {
+    // Remove HTML tags like <s>
+    let cleaned = text.replace(/<\/?[^>]+(>|$)/g, '');
+
+    // Remove markdown code fences ```json ... ```
+    cleaned = cleaned.replace(/```json\s*([\s\S]*?)\s*```/g, '$1');
+
+    // Remove other bracketed tags like [OUT]
+    cleaned = cleaned.replace(/\[.*?\]/g, '');
+
+    return cleaned.trim();
+  }
 
   useEffect(() => {
     if (!emailText.trim()) {
-      setNeedsFollowUp(false);
-      setFollowUpBy(null);
-      setReason('');
+      setFollowUpData(null);
       setError('');
       return;
     }
 
-    const detectFollowUp = async () => {
+    const fetchFollowUp = async () => {
       setLoading(true);
       setError('');
-      setNeedsFollowUp(false);
-      setFollowUpBy(null);
-      setReason('');
+      setFollowUpData(null);
 
       try {
         const res = await fetch('/api/followup', {
@@ -49,22 +49,23 @@ function FollowUpReminder({ emailText }: Props) {
           body: JSON.stringify({ emailText }),
         });
 
+        const text = await res.text();
+
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to detect follow-up');
+          throw new Error(text || 'Failed to get follow-up data');
         }
 
-        const data = await res.json();
+        const cleanedText = cleanResponse(text);
 
-        if (data.needsFollowUp) {
-          setNeedsFollowUp(true);
-          setFollowUpBy(data.followUpBy);
-          setReason(data.reason);
-        } else {
-          setNeedsFollowUp(false);
-          setFollowUpBy(null);
-          setReason('');
+        // Now safely parse JSON
+        let data: FollowUpData;
+        try {
+          data = JSON.parse(cleanedText);
+        } catch {
+          throw new Error('Invalid JSON response after cleaning.');
         }
+
+        setFollowUpData(data);
       } catch (err: any) {
         setError(err.message || 'Network error');
       } finally {
@@ -72,60 +73,35 @@ function FollowUpReminder({ emailText }: Props) {
       }
     };
 
-    detectFollowUp();
+    fetchFollowUp();
   }, [emailText]);
 
-  if (loading) return <div>Checking for follow-up requests...</div>;
+  if (loading) return <div>Checking follow-up status...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
-  if (!needsFollowUp) return null;
+  if (!followUpData) return null;
 
   return (
     <div
       style={{
         marginTop: '1rem',
-        padding: '10px 15px',
-        backgroundColor: '#ffecb3',
+        padding: '12px',
         borderRadius: '8px',
-        border: '1px solid #fbc02d',
-        color: '#5d4037',
+        backgroundColor: followUpData.needsFollowUp ? '#ffeb3b' : '#c8e6c9',
+        border: '1px solid #ccc',
+        fontSize: '16px',
       }}
     >
-      <strong>⏰ Follow-up Requested!</strong>
-      <p style={{ margin: '0.5rem 0' }}>{reason}</p>
-      {followUpBy && (
-        <p>
-          Follow up by:{' '}
-          <time dateTime={followUpBy} style={{ fontWeight: 'bold' }}>
-            {formatDate(followUpBy)}
-          </time>
-        </p>
-      )}
-      {/* Optional: Add to Google Calendar button if followUpBy is valid */}
-      {followUpBy && (
-        <a
-          href={`https://calendar.google.com/calendar/u/0/r/eventedit?text=Follow+up+email&dates=${followUpBy
-            .replace(/[-:]/g, '')
-            .split('.')[0]}/${new Date(new Date(followUpBy).getTime() + 3600000)
-            .toISOString()
-            .replace(/[-:]/g, '')
-            .split('.')[0]}&details=${encodeURIComponent(
-            reason
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block',
-            marginTop: '0.5rem',
-            padding: '8px 12px',
-            backgroundColor: '#fbc02d',
-            color: '#5d4037',
-            borderRadius: '4px',
-            textDecoration: 'none',
-            fontWeight: 'bold',
-          }}
-        >
-          ➕ Add Follow-up to Google Calendar
-        </a>
+      {followUpData.needsFollowUp ? (
+        <>
+          <strong>⚠️ Follow-Up Needed</strong>
+          <p>By: {followUpData.followUpBy || 'No specific deadline'}</p>
+          <p>{followUpData.reason}</p>
+        </>
+      ) : (
+        <>
+          <strong>✅ No Follow-Up Needed</strong>
+          <p>{followUpData.reason}</p>
+        </>
       )}
     </div>
   );
