@@ -1,3 +1,4 @@
+// src/component/PriorityFlag.tsx
 import { useEffect, useState } from 'react';
 
 interface Props {
