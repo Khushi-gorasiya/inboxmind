@@ -17,6 +17,19 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
     return match ? match[1].trim() : null;
   }
 
+  // Helper to clean unwanted tags like <s>, [/INST], etc.
+  function cleanResponse(text: string): string {
+    let cleaned = text;
+
+    // Remove HTML-like tags e.g., <s>
+    cleaned = cleaned.replace(/<\/?[^>]+(>|$)/g, '');
+
+    // Remove bracketed tokens e.g., [/INST], [OUT], etc.
+    cleaned = cleaned.replace(/\[[^\]]+\]/g, '');
+
+    return cleaned.trim();
+  }
+
   useEffect(() => {
     if (!emailText.trim()) {
       setSpamStatus('');
@@ -35,13 +48,27 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        const text = await res.text();
+        const rawText = await res.text();
 
-        if (!res.ok) throw new Error(text || 'Error detecting spam');
+        if (!res.ok) throw new Error(rawText || 'Error detecting spam');
 
-        const jsonString = extractJSON(text);
+        // Log raw response for debugging
+        console.log('Raw spamdetector response:', rawText);
 
-        if (!jsonString) throw new Error('Invalid JSON: Could not find JSON data in response');
+        // Try extracting JSON block from markdown
+        let jsonString = extractJSON(rawText);
+
+        if (!jsonString) {
+          // If no JSON block, try cleaning and parsing entire response as JSON
+          const cleanedText = cleanResponse(rawText);
+
+          try {
+            JSON.parse(cleanedText);
+            jsonString = cleanedText;
+          } catch {
+            throw new Error('Invalid JSON: Could not find or parse JSON data in response');
+          }
+        }
 
         let data;
         try {
