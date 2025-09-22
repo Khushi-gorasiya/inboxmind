@@ -4,23 +4,32 @@ interface Props {
   emailText: string;
 }
 
+interface SpamResponse {
+  label: string;
+  reason: string;
+}
+
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [spamStatus, setSpamStatus] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rawResponse, setRawResponse] = useState(''); // For debugging
 
+  // Helper to extract JSON string from API response text
   function extractJSON(text: string): string | null {
-    const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
-    return match ? match[1].trim() : null;
-  }
+    // Try to extract JSON block inside ```json ... ```
+    const jsonBlock = text.match(/```json\s*([\s\S]*?)\s*```/i);
+    if (jsonBlock && jsonBlock[1]) {
+      return jsonBlock[1].trim();
+    }
 
-  function cleanResponse(text: string): string {
-    let cleaned = text;
-    cleaned = cleaned.replace(/<\/?[^>]+(>|$)/g, '');
-    cleaned = cleaned.replace(/\[[^\]]+\]/g, '');
-    return cleaned.trim();
+    // Fallback: try to find JSON object in the text directly
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+
+    return null;
   }
 
   useEffect(() => {
@@ -28,14 +37,15 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
       setSpamStatus('');
       setReason('');
       setError('');
-      setRawResponse('');
       return;
     }
 
     const checkSpam = async () => {
       setLoading(true);
       setError('');
-      setRawResponse('');
+      setSpamStatus('');
+      setReason('');
+
       try {
         const res = await fetch('/api/spamdetector', {
           method: 'POST',
@@ -43,57 +53,37 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        const rawText = await res.text();
-        setRawResponse(rawText);
-        console.log('Raw spamdetector response:', rawText);
+        const text = await res.text();
 
         if (!res.ok) {
-          // Try parse error JSON
-          let errorData;
+          // Try parse error from response JSON
+          let errMsg = text;
           try {
-            errorData = JSON.parse(rawText);
-            setError(errorData.error || 'Unknown error detecting spam');
+            const errJson = JSON.parse(text);
+            if (errJson.error) errMsg = errJson.error;
           } catch {
-            setError(rawText || 'Unknown error detecting spam');
+            // ignore parse error here
           }
-          setSpamStatus('');
-          setReason('');
-          setLoading(false);
-          return;
+          throw new Error(errMsg || 'Error detecting spam');
         }
 
-        // Try to parse JSON normally
-        let jsonString = extractJSON(rawText);
+        // Extract JSON from response text
+        const jsonString = extractJSON(text);
         if (!jsonString) {
-          const cleanedText = cleanResponse(rawText);
-          try {
-            JSON.parse(cleanedText);
-            jsonString = cleanedText;
-          } catch {
-            setError('Invalid JSON: Could not find or parse JSON data in response');
-            setSpamStatus('');
-            setReason('');
-            setLoading(false);
-            return;
-          }
+          throw new Error('Invalid JSON: Could not find JSON data in response');
         }
 
-        let data;
+        let data: SpamResponse;
         try {
           data = JSON.parse(jsonString);
-        } catch {
-          setError('Invalid JSON: Failed to parse JSON data');
-          setSpamStatus('');
-          setReason('');
-          setLoading(false);
-          return;
+        } catch (e) {
+          throw new Error('Invalid JSON: Could not parse JSON data');
         }
 
         setSpamStatus(data.label);
         setReason(data.reason);
-        setError('');
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || 'Network error');
         setSpamStatus('');
         setReason('');
       } finally {
@@ -108,32 +98,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
 
   return (
     <div>
-      {error && (
-        <div style={{ color: 'red', marginBottom: '1rem' }}>
-          Error: {error}
-          {rawResponse && (
-            <>
-              <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                Raw API Response (for debugging):
-              </div>
-              <pre
-                style={{
-                  whiteSpace: 'pre-wrap',
-                  backgroundColor: '#fdd',
-                  padding: '10px',
-                  borderRadius: '6px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  fontSize: '14px',
-                }}
-              >
-                {rawResponse}
-              </pre>
-            </>
-          )}
-        </div>
-      )}
-
+      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
       {!error && spamStatus && (
         <div
           style={{
@@ -146,7 +111,9 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           }}
         >
           {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
-          {reason && <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>}
+          {reason && (
+            <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>
+          )}
         </div>
       )}
     </div>
