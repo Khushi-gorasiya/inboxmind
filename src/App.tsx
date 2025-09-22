@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState, useEffect } from 'react';
 import PriorityFlag from './component/PriorityFlag';
 import SmartReply from './component/SmartReply';
