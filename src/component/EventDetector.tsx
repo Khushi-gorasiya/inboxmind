@@ -1,3 +1,4 @@
+//src/component/EventDetector.tsx
 import { useEffect, useState } from 'react';
 
 interface Props {
