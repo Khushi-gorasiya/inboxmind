@@ -11,6 +11,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Helper to extract JSON from markdown code block
+  function extractJSON(text: string): string | null {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
+    return match ? match[1].trim() : null;
+  }
+
   useEffect(() => {
     if (!emailText.trim()) {
       setSpamStatus('');
@@ -28,11 +34,23 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ emailText }),
         });
-        const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || 'Error detecting spam');
+        const text = await res.text();
 
-        setSpamStatus(data.spamStatus);
+        if (!res.ok) throw new Error(text || 'Error detecting spam');
+
+        const jsonString = extractJSON(text);
+
+        if (!jsonString) throw new Error('Invalid JSON: Could not find JSON data in response');
+
+        let data;
+        try {
+          data = JSON.parse(jsonString);
+        } catch {
+          throw new Error('Invalid JSON: Failed to parse JSON data');
+        }
+
+        setSpamStatus(data.label);
         setReason(data.reason);
       } catch (err: any) {
         setError(err.message);
