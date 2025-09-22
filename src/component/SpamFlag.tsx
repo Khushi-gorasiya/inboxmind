@@ -1,4 +1,3 @@
-// src/component/SpamFlag.tsx
 import React, { useState, useEffect } from 'react';
 
 interface Props {
@@ -10,23 +9,19 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rawResponse, setRawResponse] = useState(''); // For debugging
 
-  // Helper to extract JSON from markdown code block
+  // Extract JSON block from markdown ```json ... ```
   function extractJSON(text: string): string | null {
     const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
     return match ? match[1].trim() : null;
   }
 
-  // Helper to clean unwanted tags like <s>, [/INST], etc.
+  // Clean HTML tags and square bracket tokens
   function cleanResponse(text: string): string {
     let cleaned = text;
-
-    // Remove HTML-like tags e.g., <s>
     cleaned = cleaned.replace(/<\/?[^>]+(>|$)/g, '');
-
-    // Remove bracketed tokens e.g., [/INST], [OUT], etc.
     cleaned = cleaned.replace(/\[[^\]]+\]/g, '');
-
     return cleaned.trim();
   }
 
@@ -35,12 +30,14 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
       setSpamStatus('');
       setReason('');
       setError('');
+      setRawResponse('');
       return;
     }
 
     const checkSpam = async () => {
       setLoading(true);
       setError('');
+      setRawResponse('');
       try {
         const res = await fetch('/api/spamdetector', {
           method: 'POST',
@@ -49,17 +46,16 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         });
 
         const rawText = await res.text();
+        setRawResponse(rawText); // Save raw response for debugging
+        console.log('Raw spamdetector response:', rawText);
 
         if (!res.ok) throw new Error(rawText || 'Error detecting spam');
 
-        // Log raw response for debugging
-        console.log('Raw spamdetector response:', rawText);
-
-        // Try extracting JSON block from markdown
+        // Try to extract JSON block from markdown
         let jsonString = extractJSON(rawText);
 
         if (!jsonString) {
-          // If no JSON block, try cleaning and parsing entire response as JSON
+          // Try cleaned entire response text as JSON
           const cleanedText = cleanResponse(rawText);
 
           try {
@@ -79,6 +75,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
 
         setSpamStatus(data.label);
         setReason(data.reason);
+        setError('');
       } catch (err: any) {
         setError(err.message);
         setSpamStatus('');
@@ -95,7 +92,32 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
 
   return (
     <div>
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+      {error && (
+        <div style={{ color: 'red', marginBottom: '1rem' }}>
+          Error: {error}
+          {rawResponse && (
+            <>
+              <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                Raw API Response (for debugging):
+              </div>
+              <pre
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  backgroundColor: '#fdd',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  fontSize: '14px',
+                }}
+              >
+                {rawResponse}
+              </pre>
+            </>
+          )}
+        </div>
+      )}
+
       {!error && spamStatus && (
         <div
           style={{
@@ -108,9 +130,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           }}
         >
           {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
-          {reason && (
-            <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>
-          )}
+          {reason && <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>}
         </div>
       )}
     </div>
