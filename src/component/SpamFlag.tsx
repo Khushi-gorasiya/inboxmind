@@ -11,13 +11,11 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [error, setError] = useState('');
   const [rawResponse, setRawResponse] = useState(''); // For debugging
 
-  // Extract JSON block from markdown ```json ... ```
   function extractJSON(text: string): string | null {
     const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
     return match ? match[1].trim() : null;
   }
 
-  // Clean HTML tags and square bracket tokens
   function cleanResponse(text: string): string {
     let cleaned = text;
     cleaned = cleaned.replace(/<\/?[^>]+(>|$)/g, '');
@@ -46,23 +44,37 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         });
 
         const rawText = await res.text();
-        setRawResponse(rawText); // Save raw response for debugging
+        setRawResponse(rawText);
         console.log('Raw spamdetector response:', rawText);
 
-        if (!res.ok) throw new Error(rawText || 'Error detecting spam');
+        if (!res.ok) {
+          // Try parse error JSON
+          let errorData;
+          try {
+            errorData = JSON.parse(rawText);
+            setError(errorData.error || 'Unknown error detecting spam');
+          } catch {
+            setError(rawText || 'Unknown error detecting spam');
+          }
+          setSpamStatus('');
+          setReason('');
+          setLoading(false);
+          return;
+        }
 
-        // Try to extract JSON block from markdown
+        // Try to parse JSON normally
         let jsonString = extractJSON(rawText);
-
         if (!jsonString) {
-          // Try cleaned entire response text as JSON
           const cleanedText = cleanResponse(rawText);
-
           try {
             JSON.parse(cleanedText);
             jsonString = cleanedText;
           } catch {
-            throw new Error('Invalid JSON: Could not find or parse JSON data in response');
+            setError('Invalid JSON: Could not find or parse JSON data in response');
+            setSpamStatus('');
+            setReason('');
+            setLoading(false);
+            return;
           }
         }
 
@@ -70,7 +82,11 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         try {
           data = JSON.parse(jsonString);
         } catch {
-          throw new Error('Invalid JSON: Failed to parse JSON data');
+          setError('Invalid JSON: Failed to parse JSON data');
+          setSpamStatus('');
+          setReason('');
+          setLoading(false);
+          return;
         }
 
         setSpamStatus(data.label);
