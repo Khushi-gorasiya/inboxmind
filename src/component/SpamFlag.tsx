@@ -15,21 +15,31 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Helper to extract JSON string from API response text
-  function extractJSON(text: string): string | null {
-    // Try to extract JSON block inside ```json ... ```
-    const jsonBlock = text.match(/```json\s*([\s\S]*?)\s*```/i);
-    if (jsonBlock && jsonBlock[1]) {
-      return jsonBlock[1].trim();
+  // Clean unwanted tokens and extract JSON inside markdown fences
+  function extractAndParseJSON(rawText: string): SpamResponse {
+    // Step 1: Remove known noise tokens and tags
+    let cleaned = rawText
+      .replace(/<[^>]+>/g, '')  // Remove any HTML-like tags e.g. <s>
+      .replace(/\[OUT\]/gi, '') // Remove [OUT]
+      .replace(/\[\/?INST\]/gi, '') // Remove [INST] or [/INST]
+      .trim();
+
+    // Step 2: Extract JSON inside ```json ... ```
+    const jsonMatch = cleaned.match(/```json\s*([\s\S]*?)```/i);
+
+    if (!jsonMatch || !jsonMatch[1]) {
+      throw new Error('Could not find JSON data in response');
     }
 
-    // Fallback: try to find JSON object in the text directly
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return jsonMatch[0];
-    }
+    const jsonString = jsonMatch[1].trim();
 
-    return null;
+    // Step 3: Parse JSON safely
+    try {
+      const parsed = JSON.parse(jsonString);
+      return parsed;
+    } catch (err) {
+      throw new Error('Invalid JSON format in response');
+    }
   }
 
   useEffect(() => {
@@ -56,7 +66,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
         const text = await res.text();
 
         if (!res.ok) {
-          // Try parse error from response JSON
+          // Try parse error message from JSON error response
           let errMsg = text;
           try {
             const errJson = JSON.parse(text);
@@ -67,21 +77,12 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           throw new Error(errMsg || 'Error detecting spam');
         }
 
-        // Extract JSON from response text
-        const jsonString = extractJSON(text);
-        if (!jsonString) {
-          throw new Error('Invalid JSON: Could not find JSON data in response');
-        }
+        // Extract & parse JSON response
+        const data = extractAndParseJSON(text);
 
-        let data: SpamResponse;
-        try {
-          data = JSON.parse(jsonString);
-        } catch (e) {
-          throw new Error('Invalid JSON: Could not parse JSON data');
-        }
-
-        setSpamStatus(data.label);
-        setReason(data.reason);
+        // For spam API, keys might be 'label' or something else; adapt accordingly
+        setSpamStatus(data.label || '');
+        setReason(data.reason || '');
       } catch (err: any) {
         setError(err.message || 'Network error');
         setSpamStatus('');
