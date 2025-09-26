@@ -47,14 +47,19 @@ ${emailText}`,
 
     const data = await response.json();
 
+    // 🧪 TEMP: Log full raw response for debugging
+    console.log('🧠 AI Raw Output:', JSON.stringify(data, null, 2));
+
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
     }
 
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      return res.status(500).json({ error: 'Empty response from model' });
+      return res.status(500).json({
+        error: 'The AI did not return any response. Try simplifying the email or try again later.',
+      });
     }
 
     const cleaned = extractJSON(content);
@@ -80,23 +85,23 @@ ${emailText}`,
   }
 }
 
-// 🧠 Improved JSON Extractor
+// 🧠 JSON Extractor — Handles raw, markdown, and tag-wrapped formats
 function extractJSON(text) {
   try {
-    // Try parsing as-is
+    // Try parsing raw
     return JSON.parse(text);
   } catch {
-    // Strip common wrappers
-    const stripped = text
-      .replace(/<s>\s*\[OUT\]/gi, '')
-      .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
-      .replace(/```json\s*([\s\S]*?)\s*```/gi, '$1') // remove markdown
-      .replace(/```([\s\S]*?)```/gi, '$1')           // catch generic code blocks
-      .trim();
-
     try {
-      return JSON.parse(stripped);
-    } catch (e) {
+      // Remove common wrappers
+      const cleaned = text
+        .replace(/<s>\s*\[OUT\]/gi, '')
+        .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
+        .replace(/```json\s*/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      return JSON.parse(cleaned);
+    } catch {
       return null;
     }
   }
