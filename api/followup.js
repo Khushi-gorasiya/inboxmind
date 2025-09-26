@@ -29,7 +29,7 @@ export default async function handler(req, res) {
             role: 'user',
             content: `Analyze the following email and determine if it requests a follow-up or has a reply deadline.
 
-Return ONLY valid raw JSON. Do NOT include markdown, code blocks, or extra commentary.
+Return ONLY valid raw JSON. Do NOT include markdown (like \`\`\`json), tags (like <s>, [OUT]), or any commentary.
 
 Format:
 {
@@ -57,45 +57,47 @@ ${emailText}`,
       return res.status(500).json({ error: 'Empty response from model' });
     }
 
-    // Attempt to clean and parse the JSON
-    const cleanedJSON = extractJSON(content);
+    const cleaned = extractJSON(content);
 
-    if (!cleanedJSON) {
+    if (!cleaned) {
       return res.status(500).json({ error: `Invalid JSON response: ${content}` });
     }
 
-    const { needsFollowUp, followUpBy, reason } = cleanedJSON;
+    const { needsFollowUp, followUpBy, reason } = cleaned;
 
     if (typeof needsFollowUp !== 'boolean' || typeof reason !== 'string') {
       return res.status(500).json({ error: 'Response missing required keys' });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       needsFollowUp,
       followUpBy: followUpBy || null,
       reason,
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
 
-// --- 🔧 Helper Function ---
+// 🧠 Improved JSON Extractor
 function extractJSON(text) {
   try {
-    // Attempt direct JSON parse first
+    // Try parsing as-is
     return JSON.parse(text);
   } catch {
-    // Try to extract from code block like ```json ... ```
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    if (match) {
-      try {
-        return JSON.parse(match[1]);
-      } catch (e) {
-        return null;
-      }
+    // Strip common wrappers
+    const stripped = text
+      .replace(/<s>\s*\[OUT\]/gi, '')
+      .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
+      .replace(/```json\s*([\s\S]*?)\s*```/gi, '$1') // remove markdown
+      .replace(/```([\s\S]*?)```/gi, '$1')           // catch generic code blocks
+      .trim();
+
+    try {
+      return JSON.parse(stripped);
+    } catch (e) {
+      return null;
     }
-    return null;
   }
 }
