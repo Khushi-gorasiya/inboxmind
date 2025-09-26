@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
+        model: 'openchat/openchat-7b:free',
         messages: [
           {
             role: 'system',
@@ -38,6 +38,8 @@ Format:
   "reason": "brief explanation"
 }
 
+If you're unsure, still return a valid JSON response with "needsFollowUp": false and explain why.
+
 Email:
 ${emailText}`,
           },
@@ -47,7 +49,7 @@ ${emailText}`,
 
     const data = await response.json();
 
-    // 🧪 TEMP: Log full raw response for debugging
+    // TEMP: Debug the raw model output
     console.log('🧠 AI Raw Output:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
