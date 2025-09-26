@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openchat/openchat-7b:free',
+        model: 'nousresearch/nous-hermes-2-mixtral:free',
         messages: [
           {
             role: 'system',
