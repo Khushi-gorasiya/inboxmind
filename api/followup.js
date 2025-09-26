@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { emailText, retryCount = 0 } = req.body;
+  const { emailText } = req.body;
 
   if (!emailText?.trim()) {
     return res.status(400).json({ error: 'Missing emailText' });
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
+        model: 'meta-llama/Llama-2-7b-chat-hf',
         messages: [
           {
             role: 'system',
@@ -38,10 +38,12 @@ Format:
   "reason": "brief explanation"
 }
 
-If you're unsure, still return a valid JSON response with "needsFollowUp": false and explain why.
+If unsure, return valid JSON with "needsFollowUp": false and explain why.
 
 Email:
-${emailText}`,
+${emailText}
+
+Always respond ONLY with valid JSON.`,
           },
         ],
       }),
@@ -56,15 +58,8 @@ ${emailText}`,
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      if (retryCount < 2) {
-        // Retry once more
-        return handler(
-          { method: 'POST', body: { emailText, retryCount: retryCount + 1 } },
-          res
-        );
-      }
       return res.status(500).json({
-        error: 'The AI did not return any response after retries. Try simplifying the email or try again later.',
+        error: 'The AI did not return any response. Try simplifying the email or try again later.',
       });
     }
 
@@ -90,7 +85,7 @@ ${emailText}`,
   }
 }
 
-// JSON extractor
+// JSON extractor helper
 function extractJSON(text) {
   try {
     return JSON.parse(text);
