@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'nousresearch/nous-hermes-2-mixtral:free',
+        model: 'mistralai/mistral-7b-instruct',  // try this
         messages: [
           {
             role: 'system',
@@ -49,7 +49,7 @@ ${emailText}`,
 
     const data = await response.json();
 
-    // TEMP: Debug the raw model output
+    // TEMP log to see raw output
     console.log('🧠 AI Raw Output:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
@@ -87,21 +87,18 @@ ${emailText}`,
   }
 }
 
-// 🧠 JSON Extractor — Handles raw, markdown, and tag-wrapped formats
+// JSON extractor, robust across wrappers
 function extractJSON(text) {
   try {
-    // Try parsing raw
     return JSON.parse(text);
   } catch {
     try {
-      // Remove common wrappers
       const cleaned = text
         .replace(/<s>\s*\[OUT\]/gi, '')
         .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
         .replace(/```json\s*/gi, '')
         .replace(/```/g, '')
         .trim();
-
       return JSON.parse(cleaned);
     } catch {
       return null;
