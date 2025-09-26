@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { emailText } = req.body;
+  const { emailText, retryCount = 0 } = req.body;
 
   if (!emailText?.trim()) {
     return res.status(400).json({ error: 'Missing emailText' });
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',  // try this
+        model: 'mistralai/mistral-7b-instruct',
         messages: [
           {
             role: 'system',
@@ -49,9 +49,6 @@ ${emailText}`,
 
     const data = await response.json();
 
-    // TEMP log to see raw output
-    console.log('🧠 AI Raw Output:', JSON.stringify(data, null, 2));
-
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
     }
@@ -59,8 +56,15 @@ ${emailText}`,
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
+      if (retryCount < 2) {
+        // Retry once more
+        return handler(
+          { method: 'POST', body: { emailText, retryCount: retryCount + 1 } },
+          res
+        );
+      }
       return res.status(500).json({
-        error: 'The AI did not return any response. Try simplifying the email or try again later.',
+        error: 'The AI did not return any response after retries. Try simplifying the email or try again later.',
       });
     }
 
@@ -81,13 +85,12 @@ ${emailText}`,
       followUpBy: followUpBy || null,
       reason,
     });
-
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
 
-// JSON extractor, robust across wrappers
+// JSON extractor
 function extractJSON(text) {
   try {
     return JSON.parse(text);
