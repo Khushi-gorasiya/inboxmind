@@ -15,30 +15,34 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Clean unwanted tokens and extract JSON inside markdown fences
+  // Robust JSON extraction function
   function extractAndParseJSON(rawText: string): SpamResponse {
-    // Step 1: Remove known noise tokens and tags
-    let cleaned = rawText
-      .replace(/<[^>]+>/g, '')  // Remove any HTML-like tags e.g. <s>
-      .replace(/\[OUT\]/gi, '') // Remove [OUT]
-      .replace(/\[\/?INST\]/gi, '') // Remove [INST] or [/INST]
-      .trim();
+    if (!rawText) throw new Error('Empty response');
 
-    // Step 2: Extract JSON inside ```json ... ```
-    const jsonMatch = cleaned.match(/```json\s*([\s\S]*?)```/i);
+    // Try direct parse
+    try {
+      return JSON.parse(rawText);
+    } catch {}
 
-    if (!jsonMatch || !jsonMatch[1]) {
-      throw new Error('Could not find JSON data in response');
+    // Try extracting JSON inside ```json ... ```
+    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)```/i);
+    if (jsonMatch && jsonMatch[1]) {
+      try {
+        return JSON.parse(jsonMatch[1].trim());
+      } catch {}
     }
 
-    const jsonString = jsonMatch[1].trim();
+    // Remove known noise tokens and try again
+    const cleaned = rawText
+      .replace(/<[^>]+>/g, '')    // remove tags like <s>
+      .replace(/\[.*?\]/g, '')    // remove [OUT] etc.
+      .replace(/```json|```/gi, '') // remove markdown fences
+      .trim();
 
-    // Step 3: Parse JSON safely
     try {
-      const parsed = JSON.parse(jsonString);
-      return parsed;
+      return JSON.parse(cleaned);
     } catch (err) {
-      throw new Error('Invalid JSON format in response');
+      throw new Error('Could not find JSON data in response');
     }
   }
 
@@ -63,28 +67,22 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        const text = await res.text();
-
         if (!res.ok) {
-          // Try parse error message from JSON error response
-          let errMsg = text;
-          try {
-            const errJson = JSON.parse(text);
-            if (errJson.error) errMsg = errJson.error;
-          } catch {
-            // ignore parse error here
-          }
-          throw new Error(errMsg || 'Error detecting spam');
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error detecting spam');
         }
 
-        // Extract & parse JSON response
-        const data = extractAndParseJSON(text);
+        const data = await res.json();
 
-        // For spam API, keys might be 'label' or something else; adapt accordingly
-        setSpamStatus(data.label || '');
-        setReason(data.reason || '');
+        // DEBUG: log raw response from backend
+        console.log('Raw response from API:', data.rawResponse);
+
+        const parsed = extractAndParseJSON(data.rawResponse);
+
+        setSpamStatus(parsed.label);
+        setReason(parsed.reason);
       } catch (err: any) {
-        setError(err.message || 'Network error');
+        setError(err.message || 'Unknown error');
         setSpamStatus('');
         setReason('');
       } finally {
