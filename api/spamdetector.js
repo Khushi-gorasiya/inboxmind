@@ -8,7 +8,6 @@ export default async function handler(req, res) {
   if (!hfToken) return res.status(500).json({ error: 'Hugging Face API key not configured' });
 
   try {
-    // Use the spam detection model
     const response = await fetch(
       'https://api-inference.huggingface.co/models/mrm8488/bert-tiny-finetuned-sms-spam-detection',
       {
@@ -34,10 +33,14 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Empty response from model' });
     }
 
-    // The model returns something like: [{label: "HAM", score: 0.98}] or [{label: "SPAM", score: 0.99}]
+    // DEBUG: log the raw response to inspect
+    console.log('Model response:', JSON.stringify(data));
+
     const result = data[0];
     const label = result.label === 'SPAM' ? 'Spam' : 'Not Spam';
-    const reason = `Model confidence: ${(result.score * 100).toFixed(2)}%`;
+    const score = typeof result.score === 'number' ? result.score : 0;
+
+    const reason = `Model confidence: ${(score * 100).toFixed(2)}%`;
 
     res.status(200).json({ spamStatus: label, reason });
   } catch (err) {
