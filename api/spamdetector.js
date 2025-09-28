@@ -10,10 +10,10 @@ export default async function handler(req, res) {
   try {
     const prompt = `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object with keys "label" and "reason".\n\nEmail:\n${emailText}`;
 
-    const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
+    const response = await fetch('https://api-inference.huggingface.co/models/bigscience/bloomz-7b1', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${hfToken}`,
+        Authorization: `Bearer ${hfToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -21,13 +21,14 @@ export default async function handler(req, res) {
         parameters: {
           max_new_tokens: 200,
           return_full_text: false,
+          temperature: 0.7,
         },
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      return res.status(response.status).json({ error: errorData.error || 'Hugging Face API error' });
+      const errorData = await response.text();
+      return res.status(response.status).json({ error: errorData || 'Hugging Face API error' });
     }
 
     const data = await response.json();
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
 
     const content = data[0].generated_text.trim();
 
-    // Extract JSON object from string
+    // Extract JSON substring
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Could not find JSON in model response' });
