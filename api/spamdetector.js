@@ -16,32 +16,55 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that responds in valid JSON.'
+            content: 'You are an assistant that ONLY responds in raw JSON with "label" and "reason" — no markdown or extra formatting.'
           },
           {
             role: 'user',
-            content: `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object with keys "label" and "reason".\n\nEmail:\n${emailText}`
+            content: `Classify this email as "Spam" or "Not Spam". Respond ONLY with a JSON object like this: {"label": "...", "reason": "..."}. No markdown.\n\nEmail:\n${emailText}`
           }
-        ]
+        ],
+        // If OpenRouter supports forcing JSON mode (some models do), you could also try:
+        // "response_format": "json"
       }),
     });
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
+    }
 
-    const content = data.choices?.[0]?.message?.content;
+    const rawContent = data.choices?.[0]?.message?.content?.trim();
+
+    // Clean and extract valid JSON from potentially noisy response
+    function extractJSON(text) {
+      try {
+        // Attempt raw parse first
+        return JSON.parse(text);
+      } catch {
+        // If wrapped in markdown, extract JSON inside ```json ... ```
+        const match = text.match(/```json\s*([\s\S]*?)```/i);
+        if (match) {
+          return JSON.parse(match[1].trim());
+        }
+        // Remove HTML-like tags and retry
+        const cleaned = text.replace(/<[^>]+>/g, '').replace(/\[.*?\]/g, '').trim();
+        return JSON.parse(cleaned);
+      }
+    }
+
     let parsed;
     try {
-      parsed = JSON.parse(content);
+      parsed = extractJSON(rawContent);
     } catch (e) {
-      return res.status(500).json({ error: `Invalid JSON: ${content}` });
+      return res.status(500).json({ error: `Invalid JSON format: ${rawContent}` });
     }
 
     const { label, reason } = parsed;
-    if (!label || !reason) throw new Error('Missing label or reason');
+    if (!label || !reason) throw new Error('Missing label or reason in response');
 
-    res.status(200).json({ spamStatus: label, reason });
+    return res.status(200).json({ spamStatus: label, reason });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    console.error('SpamDetector API error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
