@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
   const { emailText } = req.body;
   if (!emailText) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
@@ -20,72 +19,75 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'Respond ONLY with a raw JSON object using keys "label" and "reason". Do NOT include markdown or explanations.'
+            content: 'You are an assistant that responds with ONLY valid JSON with keys "label" and "reason". No markdown, no extra commentary.'
           },
           {
             role: 'user',
-            content: `Is the following email spam? Return ONLY a JSON object like: {"label": "Spam", "reason": "..."}. No markdown.\n\nEmail:\n${emailText}`
+            content: `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object like {"label":"...", "reason":"..."}.\n\nEmail:\n${emailText}`
           }
         ]
+        // (If the model supports a direct JSON output mode, add that parameter here)
       }),
     });
 
     const data = await response.json();
+
+    // Log full raw model content
+    const rawContent = data.choices?.[0]?.message?.content;
+    console.log('=== RAW MODEL CONTENT START ===');
+    console.log(rawContent);
+    console.log('=== RAW MODEL CONTENT END ===');
+
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
     }
+    if (!rawContent) {
+      return res.status(500).json({ error: 'Model returned empty content' });
+    }
 
-    const rawContent = data.choices?.[0]?.message?.content?.trim();
-
-    // DEV DEBUGGING: Uncomment during testing
-    // console.log('RAW RESPONSE FROM MODEL:', rawContent);
-
-    // Function to extract and parse JSON from noisy or wrapped response
-    function extractAndParseJSON(rawText) {
-      if (!rawText) throw new Error('Empty model response');
-
-      // Try direct JSON parse first
+    function extractAndParseJSON(text) {
+      // Try direct parse
       try {
-        return JSON.parse(rawText);
+        return JSON.parse(text);
       } catch (_) {}
 
-      // Try extracting from ```json ... ```
-      const codeBlockMatch = rawText.match(/```json\s*([\s\S]*?)```/i);
-      if (codeBlockMatch) {
+      // Try JSON block
+      const block = text.match(/```json\s*([\s\S]*?)```/i);
+      if (block && block[1]) {
         try {
-          return JSON.parse(codeBlockMatch[1].trim());
+          return JSON.parse(block[1].trim());
         } catch (_) {}
       }
 
-      // Try stripping any angle brackets or bracketed tokens like <s>, [OUT]
-      const cleaned = rawText
-        .replace(/<[^>]*>/g, '') // Remove <...>
-        .replace(/\[[^\]]*\]/g, '') // Remove [...]
-        .replace(/```json|```/g, '') // Remove leftover code block fences
+      // Sanitize and try again
+      const cleaned = text
+        .replace(/<[^>]*>/g, '')
+        .replace(/\[.*?\]/g, '')
+        .replace(/```json|```/gi, '')
         .trim();
 
       try {
         return JSON.parse(cleaned);
-      } catch (_) {
-        throw new Error('Could not find valid JSON in model response');
+      } catch (e) {
+        throw new Error(`Could not parse JSON from cleaned text. Cleaned text: "${cleaned}"`);
       }
     }
 
     let parsed;
     try {
       parsed = extractAndParseJSON(rawContent);
-    } catch (err) {
-      return res.status(500).json({ error: `Invalid JSON: ${err.message}\n\nRaw content: ${rawContent}` });
+    } catch (e) {
+      return res.status(500).json({ error: `JSON parse error: ${e.message}`, raw: rawContent });
     }
 
     const { label, reason } = parsed;
     if (!label || !reason) {
-      return res.status(500).json({ error: 'Parsed JSON missing "label" or "reason"' });
+      return res.status(500).json({ error: 'Parsed JSON missing label or reason', parsed });
     }
 
     return res.status(200).json({ spamStatus: label, reason });
   } catch (err) {
-    console.error('Spam detector error:', err);
+    console.error('Spam detector internal error:', err);
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
