@@ -4,13 +4,13 @@ export default async function handler(req, res) {
   const { emailText } = req.body;
   if (!emailText) return res.status(400).json({ error: 'Missing emailText in request body' });
 
-  const hfToken = process.env.VITE_HUGGINGFACE_TOKEN;
+  const hfToken = process.env.HUGGINGFACE_API_KEY;
   if (!hfToken) return res.status(500).json({ error: 'Hugging Face API key not configured' });
 
   try {
     const prompt = `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object with keys "label" and "reason".\n\nEmail:\n${emailText}`;
 
-    const response = await fetch('https://api-inference.huggingface.co/models/bigscience/bloomz-7b1', {
+    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${hfToken}`,
@@ -19,9 +19,9 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_new_tokens: 200,
+          max_new_tokens: 150,
           return_full_text: false,
-          temperature: 0.7,
+          temperature: 0.5,
         },
       }),
     });
@@ -39,7 +39,6 @@ export default async function handler(req, res) {
 
     const content = data[0].generated_text.trim();
 
-    // Extract JSON substring
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Could not find JSON in model response' });
