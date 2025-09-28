@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   const { emailText } = req.body;
   if (!emailText) return res.status(400).json({ error: 'Missing emailText in request body' });
 
-  const hfToken = process.env.VITE_HUGGINGFACE_TOKEN;
+  const hfToken = process.env.HUGGINGFACE_API_KEY;
   if (!hfToken) return res.status(500).json({ error: 'Hugging Face API key not configured' });
 
   try {
@@ -37,8 +37,15 @@ export default async function handler(req, res) {
 
     // Interpret POSITIVE as Not Spam, NEGATIVE as Spam
     const label = result.label === 'NEGATIVE' ? 'Spam' : 'Not Spam';
-    const score = typeof result.score === 'number' ? result.score : 0;
-    const reason = `Model confidence: ${(score * 100).toFixed(2)}%`;
+
+    // Generate a basic reason without confidence score
+    let reason = '';
+
+    if (label === 'Spam') {
+      reason = 'The email content appears suspicious or unsolicited.';
+    } else {
+      reason = 'The email seems legitimate and safe.';
+    }
 
     res.status(200).json({ spamStatus: label, reason });
   } catch (err) {
