@@ -1,50 +1,64 @@
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { emailText } = req.body;
-  if (!emailText) {
-    return res.status(400).json({ error: "Missing emailText in request body" });
-  }
+  if (!emailText) return res.status(400).json({ error: 'Missing emailText in request body' });
 
-  const hfToken = process.env.VITE_HUGGINGFACE_TOKEN;
-  if (!hfToken) {
-    return res.status(500).json({ error: "Hugging Face API key not configured" });
-  }
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'OpenRouter API key not configured' });
 
   try {
-    const response = await fetch("https://api-inference.huggingface.co/models/nbroad/roberta-base-sms-spam", {
-      method: "POST",
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${hfToken}`,
-        "Content-Type": "application/json"
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: emailText
-      })
+        model: 'openrouter/auto',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an assistant that responds ONLY with a JSON object: { "label": "Spam" or "Not Spam", "reason": "..." }. No extra explanation or markdown.'
+          },
+          {
+            role: 'user',
+            content: `Classify this email as Spam or Not Spam. Email:\n${emailText}`
+          }
+        ],
+        response_format: {
+          type: "json_object"
+        }
+      }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.text();
-      return res.status(response.status).json({ error: errorData || "Model request failed" });
+      return res.status(response.status).json({ error: data.error || 'OpenRouter error' });
     }
 
-    const result = await response.json();
+    const content = data.choices?.[0]?.message?.content;
 
-    // Validate result structure
-    if (!Array.isArray(result) || !result[0]) {
-      return res.status(500).json({ error: "Empty or invalid response from model" });
+    if (!content) {
+      return res.status(500).json({ error: 'Empty response from model' });
     }
 
-    const output = result[0]; // Typically [{ label: 'spam' | 'ham', score: 0.98 }]
-    const label = output.label.toLowerCase() === "spam" ? "Spam" : "Not Spam";
-    const reason = label === "Spam"
-      ? "The email content resembles typical spam patterns."
-      : "The email appears to be safe and legitimate.";
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      return res.status(500).json({ error: 'Invalid JSON from model', raw: content });
+    }
 
+    const { label, reason } = parsed;
+    if (!label || !reason) {
+      return res.status(500).json({ error: 'Parsed JSON missing label or reason', parsed });
+    }
+
+    // Return only label and reason
     return res.status(200).json({ spamStatus: label, reason });
   } catch (err) {
-    return res.status(500).json({ error: err.message || "Internal server error" });
+    console.error('Spam detector error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
