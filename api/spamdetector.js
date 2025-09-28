@@ -16,13 +16,13 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that responds in valid JSON.'
+            content: 'You are an assistant that returns ONLY a JSON object with keys "label" ("Spam" or "Not Spam") and "reason" (a short explanation). Do NOT add anything else.'
           },
           {
             role: 'user',
-            content: `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object with keys "label" and "reason".\n\nEmail:\n${emailText}`
+            content: `Email:\n${emailText}`
           }
-        ]
+        ],
       }),
     });
 
@@ -41,6 +41,8 @@ export default async function handler(req, res) {
     if (!content || content.trim() === '') {
       return res.status(500).json({ error: 'Empty response from model' });
     }
+
+    console.log('Model response:', content); // Debug log
 
     res.status(200).json({ rawResponse: content });
   } catch (err) {
