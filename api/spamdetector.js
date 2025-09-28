@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      'https://api-inference.huggingface.co/models/mrm8488/bert-tiny-finetuned-sms-spam-detection',
+      'https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english',
       {
         method: 'POST',
         headers: {
@@ -33,13 +33,11 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Empty response from model' });
     }
 
-    // DEBUG: log the raw response to inspect
-    console.log('Model response:', JSON.stringify(data));
-
     const result = data[0];
-    const label = result.label === 'SPAM' ? 'Spam' : 'Not Spam';
-    const score = typeof result.score === 'number' ? result.score : 0;
 
+    // Interpret POSITIVE as Not Spam, NEGATIVE as Spam
+    const label = result.label === 'NEGATIVE' ? 'Spam' : 'Not Spam';
+    const score = typeof result.score === 'number' ? result.score : 0;
     const reason = `Model confidence: ${(score * 100).toFixed(2)}%`;
 
     res.status(200).json({ spamStatus: label, reason });
