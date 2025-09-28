@@ -4,47 +4,11 @@ interface Props {
   emailText: string;
 }
 
-interface SpamResponse {
-  label: string;
-  reason: string;
-}
-
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [spamStatus, setSpamStatus] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Robust JSON extraction function
-  function extractAndParseJSON(rawText: string): SpamResponse {
-    if (!rawText) throw new Error('Empty response');
-
-    // Try direct parse
-    try {
-      return JSON.parse(rawText);
-    } catch {}
-
-    // Try extracting JSON inside ```json ... ```
-    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)```/i);
-    if (jsonMatch && jsonMatch[1]) {
-      try {
-        return JSON.parse(jsonMatch[1].trim());
-      } catch {}
-    }
-
-    // Remove known noise tokens and try again
-    const cleaned = rawText
-      .replace(/<[^>]+>/g, '')    // remove tags like <s>
-      .replace(/\[.*?\]/g, '')    // remove [OUT] etc.
-      .replace(/```json|```/gi, '') // remove markdown fences
-      .trim();
-
-    try {
-      return JSON.parse(cleaned);
-    } catch (err) {
-      throw new Error('Could not find JSON data in response');
-    }
-  }
 
   useEffect(() => {
     if (!emailText.trim()) {
@@ -67,22 +31,16 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Error detecting spam');
-        }
-
         const data = await res.json();
 
-        // DEBUG: log raw response from backend
-        console.log('Raw response from API:', data.rawResponse);
+        if (!res.ok) {
+          throw new Error(data.error || 'Error detecting spam');
+        }
 
-        const parsed = extractAndParseJSON(data.rawResponse);
-
-        setSpamStatus(parsed.label);
-        setReason(parsed.reason);
+        setSpamStatus(data.spamStatus || '');
+        setReason(data.reason || '');
       } catch (err: any) {
-        setError(err.message || 'Unknown error');
+        setError(err.message || 'Network error');
         setSpamStatus('');
         setReason('');
       } finally {
