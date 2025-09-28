@@ -4,17 +4,16 @@ export default async function handler(req, res) {
   const { emailText } = req.body;
   if (!emailText) return res.status(400).json({ error: 'Missing emailText in request body' });
 
-  const hfToken = process.env.HUGGINGFACE_API_KEY;
+  const hfToken = process.env.VITE_HUGGINGFACE_TOKEN;
   if (!hfToken) return res.status(500).json({ error: 'Hugging Face API key not configured' });
 
   try {
-    // Compose prompt that asks for ONLY JSON output
     const prompt = `Classify this email as "Spam" or "Not Spam". Return ONLY a JSON object with keys "label" and "reason".\n\nEmail:\n${emailText}`;
 
     const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${VITE_HUGGINGFACE_TOKEN}`,
+        'Authorization': `Bearer ${hfToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -37,13 +36,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Empty response from model' });
     }
 
-    const content = data[0].generated_text;
+    const content = data[0].generated_text.trim();
 
-    // Try parsing JSON from generated text (clean if needed)
-    let jsonStr = content.trim();
-
-    // In case model outputs extra text, try to extract JSON substring
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    // Extract JSON object from string
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Could not find JSON in model response' });
     }
@@ -58,6 +54,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Invalid JSON format from model' });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
