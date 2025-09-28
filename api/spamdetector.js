@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   const { emailText } = req.body;
   if (!emailText) return res.status(400).json({ error: 'Missing emailText in request body' });
 
-  const hfToken = process.env.HUGGINGFACE_API_KEY;
+  const hfToken = process.env.VITE_HUGGINGFACE_TOKEN;
   if (!hfToken) return res.status(500).json({ error: 'Hugging Face API key not configured' });
 
   try {
