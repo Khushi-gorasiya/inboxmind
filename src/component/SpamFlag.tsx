@@ -4,6 +4,12 @@ interface Props {
   emailText: string;
 }
 
+interface SpamResponse {
+  spamStatus: string;
+  reason: string;
+  error?: string;
+}
+
 const SpamFlag: React.FC<Props> = ({ emailText }) => {
   const [spamStatus, setSpamStatus] = useState('');
   const [reason, setReason] = useState('');
@@ -31,14 +37,14 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           body: JSON.stringify({ emailText }),
         });
 
-        const data = await res.json();
+        const data: SpamResponse = await res.json();
 
         if (!res.ok) {
           throw new Error(data.error || 'Error detecting spam');
         }
 
-        setSpamStatus(data.spamStatus || '');
-        setReason(data.reason || '');
+        setSpamStatus(data.spamStatus);
+        setReason(data.reason);
       } catch (err: any) {
         setError(err.message || 'Network error');
         setSpamStatus('');
@@ -68,9 +74,7 @@ const SpamFlag: React.FC<Props> = ({ emailText }) => {
           }}
         >
           {spamStatus === 'Spam' ? '⚠️ Spam Detected' : '✅ Not Spam'}
-          {reason && (
-            <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>
-          )}
+          {reason && <div style={{ marginTop: '0.5rem', fontWeight: 'normal' }}>{reason}</div>}
         </div>
       )}
     </div>
