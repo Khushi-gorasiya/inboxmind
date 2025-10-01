@@ -12,8 +12,8 @@ interface EventDetails {
   location?: string;
 }
 
+// Helper to format for Google Calendar link
 function formatGoogleCalendarDateTime(date: Date) {
-  // Format for Google Calendar: YYYYMMDDTHHmmssZ
   return date.toISOString().replace(/-|:|\.\d{3}/g, '');
 }
 
@@ -24,6 +24,7 @@ function EventDetector({ emailText }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // If email is empty, reset everything
     if (!emailText.trim()) {
       setIsMeeting(false);
       setDetails(null);
@@ -38,6 +39,8 @@ function EventDetector({ emailText }: Props) {
       setDetails(null);
 
       try {
+        console.log('[EventDetector] Sending request for email:', emailText);
+
         const res = await fetch('/api/eventDetector', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -45,34 +48,34 @@ function EventDetector({ emailText }: Props) {
         });
 
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to detect event.');
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Failed to detect event');
         }
 
         const data = await res.json();
+        console.log('[EventDetector] Received data:', data);
 
         if (data.isMeeting && data.details) {
-          // Use chrono to parse date and time
-          const dateTimeString = `${data.details.date || ''} ${data.details.time || ''}`.trim();
+          const dtString = `${data.details.date || ''} ${data.details.time || ''}`.trim();
+          console.log('[EventDetector] dtString to parse:', dtString);
 
-          const parsedDate = chrono.parseDate(dateTimeString);
+          const parsed = chrono.parseDate(dtString);
+          console.log('[EventDetector] Parsed date:', parsed);
 
-          if (!parsedDate || isNaN(parsedDate.getTime())) {
-            setError('Could not parse event date/time.');
+          if (parsed && !isNaN(parsed.getTime())) {
+            setIsMeeting(true);
+            setDetails(data.details);
+          } else {
+            console.warn('[EventDetector] Could not parse date/time for event.');
             setIsMeeting(false);
             setDetails(null);
-            setLoading(false);
-            return;
           }
-
-          setIsMeeting(true);
-          setDetails(data.details);
         } else {
           setIsMeeting(false);
           setDetails(null);
         }
       } catch (err: any) {
-        console.error('Event detection error:', err);
+        console.error('[EventDetector] Error:', err);
         setError(err.message || 'Network error');
         setIsMeeting(false);
         setDetails(null);
@@ -82,7 +85,7 @@ function EventDetector({ emailText }: Props) {
     };
 
     detectEvent();
-  }, [emailText]);
+  }, [emailText]); // re-run whenever emailText changes
 
   if (loading) return <div>Detecting event...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
@@ -92,18 +95,14 @@ function EventDetector({ emailText }: Props) {
   const location = details.location || '';
   const description = emailText;
 
-  // Use chrono to parse the date/time string again for calendar links
-  const dateTimeString = `${details.date || ''} ${details.time || ''}`.trim();
-  const startDate = chrono.parseDate(dateTimeString);
-
+  const dtString = `${details.date || ''} ${details.time || ''}`.trim();
+  const startDate = chrono.parseDate(dtString);
   if (!startDate) {
-    console.warn('Invalid event date/time:', dateTimeString);
+    console.warn('[EventDetector] startDate invalid:', dtString);
     return null;
   }
-
   const start = formatGoogleCalendarDateTime(startDate);
-
-  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
   const end = formatGoogleCalendarDateTime(endDate);
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
