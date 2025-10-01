@@ -96,25 +96,12 @@ function EventDetector({ emailText }: Props) {
   const description = emailText;
 
   const dtString = `${details.date || ''} ${details.time || ''}`.trim();
-const startDate = chrono.parseDate(dtString);
+  const startDate = chrono.parseDate(dtString);
+  if (!startDate) {
+    console.warn('[EventDetector] startDate invalid:', dtString);
+    return null;
+  }
 
-if (!dtString || !startDate || isNaN(startDate.getTime())) {
-  return (
-    <div
-      style={{
-        marginTop: '1rem',
-        backgroundColor: '#fff3cd',
-        color: '#856404',
-        border: '1px solid #ffeeba',
-        padding: '12px 16px',
-        borderRadius: '6px',
-        fontSize: '15px',
-      }}
-    >
-      ⚠️ We detected a possible event, but the date or time wasn't clear. Please double-check the date in calender before adding to your calendar.
-    </div>
-  );
-}
 
   const start = formatGoogleCalendarDateTime(startDate);
   const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
@@ -126,26 +113,44 @@ if (!dtString || !startDate || isNaN(startDate.getTime())) {
     location
   )}`;
 
-  return (
-    <div style={{ marginTop: '1rem' }}>
-      <a
-        href={calendarUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+return (
+  <div style={{ marginTop: '1rem' }}>
+    <a
+      href={calendarUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'inline-block',
+        backgroundColor: '#4285f4',
+        color: 'white',
+        padding: '10px 16px',
+        borderRadius: '6px',
+        textDecoration: 'none',
+        fontWeight: 'bold',
+      }}
+    >
+      ➕ Add to Google Calendar
+    </a>
+
+    {/* ⚠️ Warning if date or time is missing */}
+    {(!details.date || !details.time) && (
+      <p
         style={{
-          display: 'inline-block',
-          backgroundColor: '#4285f4',
-          color: 'white',
-          padding: '10px 16px',
+          marginTop: '8px',
+          color: '#856404',
+          backgroundColor: '#fff3cd',
+          padding: '10px',
           borderRadius: '6px',
-          textDecoration: 'none',
-          fontWeight: 'bold',
+          border: '1px solid #ffeeba',
+          fontSize: '14px',
         }}
       >
-        ➕ Add to Google Calendar
-      </a>
-    </div>
-  );
+        ⚠️ Date or time wasn’t clearly specified in the email. Please double-check the event timing after adding it to your calendar.
+      </p>
+    )}
+  </div>
+);
+
 }
 
 export default EventDetector;
