@@ -96,11 +96,26 @@ function EventDetector({ emailText }: Props) {
   const description = emailText;
 
   const dtString = `${details.date || ''} ${details.time || ''}`.trim();
-  const startDate = chrono.parseDate(dtString);
-  if (!startDate) {
-    console.warn('[EventDetector] startDate invalid:', dtString);
-    return null;
-  }
+const startDate = chrono.parseDate(dtString);
+
+if (!dtString || !startDate || isNaN(startDate.getTime())) {
+  return (
+    <div
+      style={{
+        marginTop: '1rem',
+        backgroundColor: '#fff3cd',
+        color: '#856404',
+        border: '1px solid #ffeeba',
+        padding: '12px 16px',
+        borderRadius: '6px',
+        fontSize: '15px',
+      }}
+    >
+      ⚠️ We detected a possible event, but the date or time wasn't clear. Please double-check the date in calender before adding to your calendar.
+    </div>
+  );
+}
+
   const start = formatGoogleCalendarDateTime(startDate);
   const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
   const end = formatGoogleCalendarDateTime(endDate);
