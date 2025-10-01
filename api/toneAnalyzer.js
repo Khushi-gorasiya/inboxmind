@@ -4,7 +4,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
   const { emailText } = req.body;
   if (!emailText?.trim()) {
     return res.status(400).json({ error: 'Missing emailText' });
@@ -34,45 +33,56 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    console.log('OpenRouter raw data:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       throw new Error(data.error || 'Tone analysis failed');
     }
 
     let content = data.choices?.[0]?.message?.content;
+    console.log('Model content:', content);
 
     if (!content) {
-      throw new Error('No content in model response');
+      throw new Error('No content from AI');
     }
 
-    // Remove markdown wrappers if present
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```|```([\s\S]*?)```/i);
-    if (jsonMatch) {
-      content = jsonMatch[1] || jsonMatch[2];
+    // Strip markdown wrappers if present
+    const match = content.match(/```json\s*([\s\S]*?)\s*```|```([\s\S]*?)```/i);
+    if (match) {
+      content = match[1] || match[2];
+      console.log('Content after stripping markdown:', content);
     }
 
     let parsed;
     try {
       parsed = JSON.parse(content);
-    } catch {
+    } catch (parseErr) {
+      console.error('JSON parse failed:', parseErr);
+      // Fallback: send unknown tone and explanation = full content
       return res.status(200).json({
         tone: 'Unknown',
         explanation: content.trim(),
       });
     }
+
+    console.log('Parsed JSON:', parsed);
 
     const { tone, explanation } = parsed;
 
-    if (!tone || !explanation) {
+    if (!tone || !explanation || typeof tone !== 'string' || typeof explanation !== 'string') {
+      console.warn('Parsed object missing keys or wrong type', parsed);
+      // Fallback
       return res.status(200).json({
         tone: 'Unknown',
         explanation: content.trim(),
       });
     }
 
-    res.status(200).json({ tone, explanation });
+    // Success
+    console.log('Responding with tone & explanation', tone, explanation);
+    return res.status(200).json({ tone, explanation });
   } catch (err) {
-    console.error('Tone Analyzer Error:', err);
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    console.error('ToneAnalyzer internal error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
