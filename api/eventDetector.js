@@ -1,5 +1,3 @@
-// api/eventDetector.js
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -13,8 +11,7 @@ export default async function handler(req, res) {
   const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
 
   try {
-    const prompt = `Is this email about a meeting or event? If yes, extract the title, date, time, and location. Email:\n\n${emailText}`;
-
+    // Step 1: Classify if email is about meeting
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -40,10 +37,11 @@ export default async function handler(req, res) {
     const score = data?.scores?.[0];
 
     if (label !== 'Meeting' || score < 0.7) {
-      // Not confident that it's a meeting
+      // Not confident it's a meeting
       return res.status(200).json({ isMeeting: false });
     }
 
+    // Step 2: Extract meeting details with strict JSON output
     const extractResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -59,7 +57,7 @@ export default async function handler(req, res) {
           },
           {
             role: 'user',
-            content: `Extract the meeting or event title, date, time, and location from this email. If not found, respond with "No event found". Email:\n\n${emailText}`,
+            content: `Extract the meeting or event details from this email as JSON with the keys: title, date (ISO 8601 or natural language), time (24h or natural language), location. If no event found, respond with {"title": "", "date": "", "time": "", "location": ""}. Email:\n\n${emailText}`,
           },
         ],
       }),
@@ -73,29 +71,33 @@ export default async function handler(req, res) {
     const extractData = await extractResponse.json();
     const content = extractData?.choices?.[0]?.message?.content || '';
 
-    if (content.toLowerCase().includes('no event found')) {
+    // Extract JSON helper function
+    function extractJSON(text) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        try {
+          const cleaned = text
+            .replace(/<s>\s*\[OUT\]/gi, '')
+            .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
+            .replace(/```json\s*/gi, '')
+            .replace(/```/g, '')
+            .trim();
+          return JSON.parse(cleaned);
+        } catch {
+          return null;
+        }
+      }
+    }
+
+    const details = extractJSON(content);
+
+    if (!details || (!details.date && !details.time)) {
+      // No valid event found
       return res.status(200).json({ isMeeting: false });
     }
 
-    let details = null;
-
-    try {
-      details = JSON.parse(content);
-    } catch {
-      
-      const titleMatch = content.match(/title[:\-]\s*(.*)/i);
-      const dateMatch = content.match(/date[:\-]\s*(.*)/i);
-      const timeMatch = content.match(/time[:\-]\s*(.*)/i);
-      const locationMatch = content.match(/location[:\-]\s*(.*)/i);
-
-      details = {
-        title: titleMatch ? titleMatch[1].trim() : '',
-        date: dateMatch ? dateMatch[1].trim() : '',
-        time: timeMatch ? timeMatch[1].trim() : '',
-        location: locationMatch ? locationMatch[1].trim() : '',
-      };
-    }
-
+    // Return meeting details
     return res.status(200).json({ isMeeting: true, details });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
