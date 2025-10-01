@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import chrono from 'chrono-node';
+import * as chrono from 'chrono-node';
 
 interface Props {
   emailText: string;
