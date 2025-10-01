@@ -22,7 +22,8 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'You are an assistant that analyzes the tone of an email and responds in JSON format with keys "tone" and "explanation". The tone should be one of: Formal, Informal, Friendly, Neutral, Urgent, or Other.',
+            content:
+              'You are an assistant that analyzes the tone of an email and responds ONLY with raw JSON (no markdown). JSON format: { "tone": "value", "explanation": "value" }',
           },
           {
             role: 'user',
@@ -38,15 +39,25 @@ export default async function handler(req, res) {
       throw new Error(data.error || 'Tone analysis failed');
     }
 
-    // The model response should be JSON string. Try parse it:
+    let content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('No content in model response');
+    }
+
+    // Remove markdown wrappers if present
+    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```|```([\s\S]*?)```/i);
+    if (jsonMatch) {
+      content = jsonMatch[1] || jsonMatch[2];
+    }
+
     let parsed;
     try {
-      parsed = JSON.parse(data.choices[0].message.content);
+      parsed = JSON.parse(content);
     } catch {
-      // fallback: return raw content if parsing fails
       return res.status(200).json({
         tone: 'Unknown',
-        explanation: data.choices[0].message.content.trim(),
+        explanation: content.trim(),
       });
     }
 
@@ -55,12 +66,13 @@ export default async function handler(req, res) {
     if (!tone || !explanation) {
       return res.status(200).json({
         tone: 'Unknown',
-        explanation: data.choices[0].message.content.trim(),
+        explanation: content.trim(),
       });
     }
 
     res.status(200).json({ tone, explanation });
   } catch (err) {
+    console.error('Tone Analyzer Error:', err);
     res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
