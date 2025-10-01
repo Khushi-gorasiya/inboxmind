@@ -37,18 +37,20 @@ function App() {
       });
 
       const contentType = response.headers.get('content-type');
+
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        setSummary(
-          text.includes('504')
-            ? '⚠️ Error: The summarization service timed out. Please try again shortly.'
-            : '⚠️ Error: Unexpected error from the summarization service.'
-        );
+        if (text.includes('504') && text.toLowerCase().includes('gateway timeout')) {
+          setSummary('⚠️ Error: The summarization service timed out. Please try again shortly.');
+        } else {
+          setSummary('⚠️ Error: Unexpected error from the summarization service.');
+        }
         setLoading(false);
         return;
       }
 
       const data = await response.json();
+
       if (!response.ok) {
         setSummary(`Error: ${data.error || 'Summarization failed.'}`);
       } else if (data.summary) {
@@ -69,101 +71,102 @@ function App() {
         height: '100vh',
         width: '100vw',
         overflowY: 'auto',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#f7f9fc', // grayish background ✅
         padding: '2rem',
-        boxSizing: 'border-box',
         fontFamily: 'Segoe UI, sans-serif',
+        boxSizing: 'border-box',
       }}
     >
-      <h1 style={{ textAlign: 'center', fontSize: '2.5rem', color: '#222' }}>
+      <h1
+        style={{
+          textAlign: 'center',
+          fontSize: '2.5rem',
+          color: '#333',
+          marginBottom: '2rem',
+        }}
+      >
         InboxMind
       </h1>
 
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        {/* Email Input */}
-        <div style={cardStyle}>
-          <label htmlFor="emailInput" style={{ fontWeight: 600, fontSize: '1.1rem' }}>
-            Paste your email here:
-          </label>
-          <textarea
-            id="emailInput"
-            rows={8}
-            placeholder="Paste your email here..."
-            value={emailText}
-            onChange={(e) => setEmailText(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              fontSize: '16px',
-              borderRadius: '6px',
-              border: '1px solid #ccc',
-              marginTop: '10px',
-              resize: 'vertical',
-            }}
-          />
-          <button
-            onClick={handleSummarize}
-            style={{
-              marginTop: '12px',
-              padding: '10px 20px',
-              fontSize: '16px',
-              backgroundColor: '#1976d2',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-            disabled={loading}
-          >
-            {loading ? 'Summarizing...' : '📝 Summarize Email'}
-          </button>
+      <div
+        style={{
+          width: '100%',
+          margin: '0 auto',
+        }}
+      >
+        {/* Email Input Section */}
+        <label htmlFor="emailInput" style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+          Paste your email here:
+        </label>
+        <textarea
+          id="emailInput"
+          rows={10}
+          placeholder="Paste your email here..."
+          value={emailText}
+          onChange={(e) => setEmailText(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '16px',
+            fontSize: '16px',
+            borderRadius: '8px',
+            border: '1px solid #ccc',
+            marginTop: '8px',
+            marginBottom: '20px',
+            resize: 'vertical',
+            boxSizing: 'border-box',
+          }}
+        />
+
+        <button
+          onClick={handleSummarize}
+          style={{
+            display: 'inline-block',
+            padding: '12px 24px',
+            fontSize: '16px',
+            backgroundColor: '#1976d2',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            marginBottom: '20px',
+          }}
+          disabled={loading}
+        >
+          {loading ? 'Summarizing...' : '📝 Summarize Email'}
+        </button>
+
+        {/* Summary Section */}
+        <h3 style={{ marginTop: '2rem', fontSize: '20px' }}>🧾 Summary:</h3>
+        <div
+          style={{
+            backgroundColor: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            border: '1px solid #ddd',
+            minHeight: '120px',
+            marginTop: '10px',
+            whiteSpace: 'pre-wrap',
+            fontSize: '16px',
+            lineHeight: '1.6',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            boxSizing: 'border-box',
+          }}
+        >
+          {summary}
         </div>
 
-        {/* Summary Output */}
-        {summary && (
-          <div style={cardStyle}>
-            <h3>🧾 Summary:</h3>
-            <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{summary}</p>
-          </div>
-        )}
-
-        {/* Feature Cards */}
-        <div style={cardStyle}>
+        {/* Features Section - Full Width */}
+        <div style={{ marginTop: '2rem' }}>
           <PriorityFlag emailText={debouncedText} />
-        </div>
-
-        <div style={cardStyle}>
           <SmartReply emailText={debouncedText} />
-        </div>
-
-        <div style={cardStyle}>
           <EventDetector emailText={debouncedText} />
-        </div>
-
-        <div style={cardStyle}>
           <SpamFlag emailText={debouncedText} />
-        </div>
-
-        <div style={cardStyle}>
           <ToneAnalyzer emailText={debouncedText} />
-        </div>
-
-        <div style={cardStyle}>
           <FollowUpReminder emailText={debouncedText} />
         </div>
       </div>
     </div>
   );
 }
-
-// Reusable card style for each feature
-const cardStyle: React.CSSProperties = {
-  backgroundColor: '#fff',
-  padding: '20px',
-  borderRadius: '8px',
-  border: '1px solid #e0e0e0',
-  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
-  marginTop: '20px',
-};
 
 export default App;
