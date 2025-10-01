@@ -39,12 +39,8 @@ function ToneAnalyzer({ emailText }: Props) {
 
         const data: ToneData = await res.json();
 
-        if (!res.ok) {
-          throw new Error((data as any).error || 'Failed to analyze tone');
-        }
-
-        if (!data.tone || !data.explanation) {
-          throw new Error('Invalid response structure');
+        if (!res.ok || !data.tone || !data.explanation) {
+          throw new Error(data.error || 'Invalid response structure');
         }
 
         setTone(data.tone);
