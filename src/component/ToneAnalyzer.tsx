@@ -16,16 +16,6 @@ function ToneAnalyzer({ emailText }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Helper to extract JSON from markdown code block
-  function extractJSON(text: string): string | null {
-    // Matches ```json ... ```
-    const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    return null;
-  }
-
   useEffect(() => {
     if (!emailText.trim()) {
       setTone('');
@@ -47,24 +37,14 @@ function ToneAnalyzer({ emailText }: Props) {
           body: JSON.stringify({ emailText }),
         });
 
-        const text = await res.text();
+        const data: ToneData = await res.json();
 
         if (!res.ok) {
-          throw new Error(text || 'Failed to analyze tone');
+          throw new Error((data as any).error || 'Failed to analyze tone');
         }
 
-        // Extract JSON string from markdown block
-        const jsonString = extractJSON(text);
-
-        if (!jsonString) {
-          throw new Error('Could not find JSON data in response');
-        }
-
-        let data: ToneData;
-        try {
-          data = JSON.parse(jsonString);
-        } catch {
-          throw new Error('Invalid JSON format in response');
+        if (!data.tone || !data.explanation) {
+          throw new Error('Invalid response structure');
         }
 
         setTone(data.tone);
