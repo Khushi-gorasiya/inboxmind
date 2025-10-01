@@ -1,5 +1,5 @@
-//src/component/EventDetector.tsx
 import { useEffect, useState } from 'react';
+import chrono from 'chrono-node';
 
 interface Props {
   emailText: string;
@@ -12,20 +12,9 @@ interface EventDetails {
   location?: string;
 }
 
-function formatGoogleCalendarDateTime(date: string, time: string) {
-  try {
-    if (!date || !time) return '';
-
-    const dateTimeString = `${date} ${time}`;
-    const parsedDate = new Date(dateTimeString);
-
-    if (isNaN(parsedDate.getTime())) return '';
-
-    return parsedDate.toISOString().replace(/-|:|\.\d{3}/g, '');
-  } catch (e) {
-    console.error('Date formatting error:', e);
-    return '';
-  }
+function formatGoogleCalendarDateTime(date: Date) {
+  // Format for Google Calendar: YYYYMMDDTHHmmssZ
+  return date.toISOString().replace(/-|:|\.\d{3}/g, '');
 }
 
 function EventDetector({ emailText }: Props) {
@@ -62,8 +51,20 @@ function EventDetector({ emailText }: Props) {
 
         const data = await res.json();
 
-        // Defensive checks
-        if (data.isMeeting && data.details && data.details.date && data.details.time) {
+        if (data.isMeeting && data.details) {
+          // Use chrono to parse date and time
+          const dateTimeString = `${data.details.date || ''} ${data.details.time || ''}`.trim();
+
+          const parsedDate = chrono.parseDate(dateTimeString);
+
+          if (!parsedDate || isNaN(parsedDate.getTime())) {
+            setError('Could not parse event date/time.');
+            setIsMeeting(false);
+            setDetails(null);
+            setLoading(false);
+            return;
+          }
+
           setIsMeeting(true);
           setDetails(data.details);
         } else {
@@ -88,25 +89,22 @@ function EventDetector({ emailText }: Props) {
   if (!isMeeting || !details) return null;
 
   const title = details.title || 'Meeting';
-  const date = details.date || '';
-  const time = details.time || '';
   const location = details.location || '';
   const description = emailText;
 
-  const start = formatGoogleCalendarDateTime(date, time);
-  if (!start) {
-    console.warn('Invalid start date/time:', date, time);
+  // Use chrono to parse the date/time string again for calendar links
+  const dateTimeString = `${details.date || ''} ${details.time || ''}`.trim();
+  const startDate = chrono.parseDate(dateTimeString);
+
+  if (!startDate) {
+    console.warn('Invalid event date/time:', dateTimeString);
     return null;
   }
 
-  // Add 1 hour for end time if not provided
-  const endDate = new Date(`${date} ${time}`);
-  if (isNaN(endDate.getTime())) {
-    console.warn('Invalid end date/time:', date, time);
-    return null;
-  }
-  endDate.setHours(endDate.getHours() + 1);
-  const end = endDate.toISOString().replace(/-|:|\.\d{3}/g, '');
+  const start = formatGoogleCalendarDateTime(startDate);
+
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
+  const end = formatGoogleCalendarDateTime(endDate);
 
   const calendarUrl = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(
     title
