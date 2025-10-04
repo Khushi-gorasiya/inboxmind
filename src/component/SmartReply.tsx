@@ -1,140 +1,95 @@
 // src/component/SmartReply.tsx
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-interface Props {
+interface SmartReplyProps {
   emailText: string;
 }
 
-function cleanReplyText(text: string) {
-  return text
-    .replace(/<[^>]*>/g, '')             // Remove HTML-like tags e.g., <s>
-    .replace(/\[OUT\]/gi, '')            // Remove [OUT] token if any
-    .replace(/\[[^\]]+\]/g, '')          // Remove other square bracket placeholders e.g., [Manager's Name]
-    .trim();
-}
-
-function SmartReply({ emailText }: Props) {
+const SmartReply: React.FC<SmartReplyProps> = ({ emailText }) => {
   const [reply, setReply] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const generateReply = async () => {
+    // Reset reply and error before starting
+    setReply('');
+    setError(null);
+
     if (!emailText.trim()) {
-      setError('Please enter an email first.');
+      setError(null); // No error if input is empty, just clear reply
       return;
     }
 
     setLoading(true);
-    setReply('');
-    setError('');
 
     try {
-      const res = await fetch('/api/reply', {
+      const response = await fetch('/api/smartReply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailText }),
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (!res.ok) throw new Error(data.error || 'Reply generation failed.');
-
-      // Clean the reply before setting
-      setReply(cleanReplyText(data.reply || 'No reply generated.'));
+      if (!response.ok) {
+        // API returned error
+        setError(data.error || 'Failed to generate reply.');
+      } else if (data.reply) {
+        setReply(data.reply);
+      } else {
+        setError('No reply returned from the AI.');
+      }
     } catch (err: any) {
-      setError(err.message || '⚠️ Network error.');
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <h3 style={{ fontSize: '20px' }}>✍️ Smart Reply</h3>
+    <div style={{ marginBottom: '2rem' }}>
+      <h3>✍️ Smart Reply</h3>
 
       <button
         onClick={generateReply}
-        disabled={loading}
+        disabled={loading || !emailText.trim()}
         style={{
           padding: '10px 20px',
           fontSize: '16px',
+          cursor: loading || !emailText.trim() ? 'not-allowed' : 'pointer',
           backgroundColor: '#1976d2',
           color: '#fff',
           border: 'none',
-          borderRadius: '5px',
-          cursor: loading ? 'not-allowed' : 'pointer',
+          borderRadius: '6px',
+          marginBottom: '10px',
         }}
       >
-        {loading ? 'Generating Reply...' : 'Generate Reply'}
+        {loading ? 'Generating...' : 'Generate Reply'}
       </button>
 
+      {/* Show error only if exists */}
       {error && (
-        <div style={{ marginTop: '1rem', color: '#d32f2f' }}>
-          ⚠️ {error}
-        </div>
+        <p style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
+          Error: {error}
+        </p>
       )}
 
-      {reply && !error && (
+      {/* Show reply only if exists */}
+      {reply && (
         <div
           style={{
-            marginTop: '1rem',
+            whiteSpace: 'pre-wrap',
             backgroundColor: '#e3f2fd',
-            padding: '1rem',
-            borderRadius: '8px',
-            boxShadow: '0 0 8px rgba(0,0,0,0.05)',
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #90caf9',
           }}
         >
-          <textarea
-            value={reply}
-            readOnly
-            rows={8}
-            style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '16px',
-              lineHeight: '1.6',
-              borderRadius: '6px',
-              border: '1px solid #aaa',
-              resize: 'vertical',
-              minHeight: '150px',
-              backgroundColor: '#f9f9f9',
-            }}
-          />
-
-          <div style={{ marginTop: '0.5rem' }}>
-            <button
-              onClick={() => navigator.clipboard.writeText(reply)}
-              style={{
-                marginRight: '10px',
-                padding: '8px 12px',
-                backgroundColor: '#4caf50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              📋 Copy
-            </button>
-            <a
-              href={`mailto:?subject=RE: Your Email&body=${encodeURIComponent(reply)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: '8px 12px',
-                backgroundColor: '#f9a825',
-                color: '#fff',
-                textDecoration: 'none',
-                borderRadius: '4px',
-              }}
-            >
-              ✉️ Open Gmail
-            </a>
-          </div>
+          {reply}
         </div>
       )}
     </div>
   );
-}
+};
 
 export default SmartReply;
