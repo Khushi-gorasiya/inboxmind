@@ -10,20 +10,25 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText' });
   }
 
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'GROQ_API_KEY not configured in environment' });
+  }
+
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',
             content:
-              'You are an assistant that analyzes the tone of an email and responds ONLY with raw JSON like this: {"tone": "Formal", "explanation": "Explanation here"} — do NOT wrap it in markdown or any code blocks.',
+              'You are an assistant that analyzes the tone of an email and responds ONLY with raw JSON like this: {"tone": "Formal", "explanation": "Explanation here"}. No markdown, no code blocks.',
           },
           {
             role: 'user',
@@ -35,10 +40,7 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // Extract the AI's text output
     let content = data?.choices?.[0]?.message?.content?.trim();
-    console.log('🧠 AI Response Content:', content);
-
     if (!content) {
       return res.status(200).json({
         tone: 'Unknown',
@@ -46,19 +48,17 @@ export default async function handler(req, res) {
       });
     }
 
-    // Try to extract JSON from markdown code block
-    const match = content.match(/```json\s*([\s\S]*?)\s*```|```([\s\S]*?)```/i);
-    if (match) {
-      content = match[1] || match[2];
-      console.log('📦 Extracted JSON string:', content);
-    }
+    // Clean up potential formatting issues from the model
+    content = content
+      .replace(/```json\s*/gi, '')
+      .replace(/```/g, '')
+      .trim();
 
-    // Attempt to parse the cleaned content
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch (err) {
-      console.warn('⚠️ JSON parsing failed, returning raw content.');
+      console.warn('⚠️ JSON parsing failed. Returning raw content.');
       return res.status(200).json({
         tone: 'Unknown',
         explanation: content,
@@ -68,7 +68,6 @@ export default async function handler(req, res) {
     const { tone, explanation } = parsed;
 
     if (typeof tone !== 'string' || typeof explanation !== 'string') {
-      console.warn('⚠️ Parsed JSON is missing required fields.');
       return res.status(200).json({
         tone: 'Unknown',
         explanation: JSON.stringify(parsed),
