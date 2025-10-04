@@ -159,7 +159,7 @@ function App() {
         <div style={{ marginTop: '2rem' }}>
           <PriorityFlag emailText={debouncedText} />
           <SmartReply emailText={debouncedText} />
-        /*  <EventDetector emailText={debouncedText} />  */
+          <EventDetector emailText={debouncedText} />  
           <SpamFlag emailText={debouncedText} />
           <ToneAnalyzer emailText={debouncedText} />
           <FollowUpReminder emailText={debouncedText} />
