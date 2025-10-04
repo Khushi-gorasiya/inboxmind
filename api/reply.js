@@ -5,15 +5,14 @@ export default async function handler(req, res) {
   if (!emailText?.trim()) return res.status(400).json({ error: 'Missing emailText' });
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`, // uses your Groq key from Vercel
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://inboxmind-one.vercel.app/',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
+        model: 'llama-3.3-70b-versatile', // Supported by Groq
         messages: [
           {
             role: 'system',
@@ -28,7 +27,14 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Reply generation failed');
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error:
+          (typeof data.error === 'string'
+            ? data.error
+            : JSON.stringify(data.error)) || 'Reply generation failed',
+      });
+    }
 
     const reply = data?.choices?.[0]?.message?.content?.trim();
     res.status(200).json({ reply: reply || 'No reply generated.' });
