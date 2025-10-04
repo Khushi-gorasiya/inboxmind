@@ -1,19 +1,20 @@
 // api/followup.js
 
+// api/followup.js
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { emailText } = req.body;
-
   if (!emailText?.trim()) {
     return res.status(400).json({ error: 'Missing emailText' });
   }
 
   try {
     const body = {
-      model: 'mixtral-8x7b-32768', // Groq-supported high-quality model
+      model: 'mixtral-8x7b-32768',
       messages: [
         {
           role: 'system',
@@ -43,11 +44,10 @@ Always respond ONLY with valid JSON.`,
       ],
     };
 
-    // ✅ Correct Groq endpoint
-    const response = await fetch('https://api.groq.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`, // Pulled from Vercel env
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -65,21 +65,19 @@ Always respond ONLY with valid JSON.`,
     }
 
     const content = data.choices?.[0]?.message?.content?.trim();
-
     if (!content) {
       return res.status(500).json({
-        error: 'The AI did not return any response. Try simplifying the email or try again later.',
+        error:
+          'The AI did not return any response. Try simplifying the email or try again later.',
       });
     }
 
     const cleaned = extractJSON(content);
-
     if (!cleaned) {
       return res.status(500).json({ error: `Invalid JSON response: ${content}` });
     }
 
     const { needsFollowUp, followUpBy, reason } = cleaned;
-
     if (typeof needsFollowUp !== 'boolean' || typeof reason !== 'string') {
       return res.status(500).json({ error: 'Response missing required keys' });
     }
@@ -94,7 +92,7 @@ Always respond ONLY with valid JSON.`,
   }
 }
 
-// JSON cleaner
+// JSON extractor helper
 function extractJSON(text) {
   try {
     return JSON.parse(text);
