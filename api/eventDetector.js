@@ -10,11 +10,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli'; // works for classification
-  const HF_EXTRACT_MODEL = 'tiiuae/falcon-7b-instruct'; // use Falcon for text generation
+  const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli';
+  const HF_EXTRACT_MODEL = 'bigscience/bloom-560m';
 
   try {
-    // Step 1: Check if email is about meeting
+    // Step 1: Classification
     const classifyResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_CLASSIFY_MODEL}`, {
       method: 'POST',
       headers: {
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Step 2: Extract meeting details using Falcon text generation
+    // Step 2: Extraction prompt
     const prompt = `
 Extract meeting details from the following email and respond ONLY with JSON with keys: title, date (ISO 8601 or natural language), time, location.
 If no details found, return empty strings for all keys.
@@ -73,14 +73,13 @@ ${emailText}
 
     const extractData = await extractResponse.json();
 
-    // Falcon returns an array with generated_text usually
     const rawOutput = Array.isArray(extractData) ? extractData[0]?.generated_text : extractData.generated_text || extractData;
 
-    // Parse JSON from raw output string
+    // Attempt to parse JSON from output
     let details;
     try {
       details = JSON.parse(rawOutput);
-    } catch (e) {
+    } catch {
       const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
