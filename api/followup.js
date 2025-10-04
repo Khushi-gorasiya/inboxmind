@@ -1,5 +1,4 @@
 // api/followup.js
-
 // api/followup.js
 
 export default async function handler(req, res) {
@@ -14,7 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const body = {
-      model: 'mixtral-8x7b-32768',
+      model: 'llama-3.3-70b-versatile',   // switched to supported model
       messages: [
         {
           role: 'system',
@@ -67,8 +66,7 @@ Always respond ONLY with valid JSON.`,
     const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) {
       return res.status(500).json({
-        error:
-          'The AI did not return any response. Try simplifying the email or try again later.',
+        error: 'The AI did not return any response. Try simplifying the email or try again later.',
       });
     }
 
