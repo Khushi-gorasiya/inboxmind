@@ -1,5 +1,7 @@
 // api/followup.js
 
+// api/followup.js
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -13,7 +15,7 @@ export default async function handler(req, res) {
 
   try {
     const body = {
-      model: 'mixtral-8x7b-32768',
+      model: 'mixtral-8x7b-32768', // Groq-supported high-quality model
       messages: [
         {
           role: 'system',
@@ -43,10 +45,11 @@ Always respond ONLY with valid JSON.`,
       ],
     };
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // ✅ Correct Groq endpoint
+    const response = await fetch('https://api.groq.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer GROQ_API_KEY`,
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`, // Pulled from Vercel env
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -93,7 +96,7 @@ Always respond ONLY with valid JSON.`,
   }
 }
 
-// JSON extractor helper
+// JSON cleaner
 function extractJSON(text) {
   try {
     return JSON.parse(text);
