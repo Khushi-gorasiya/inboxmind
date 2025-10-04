@@ -10,13 +10,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  // Hugging Face model for classification
-  const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli';
-  // Hugging Face model for extraction - use smaller flan-t5 variant
-  const HF_EXTRACT_MODEL = 'google/flan-t5-small';
+  const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli'; // works for classification
+  const HF_EXTRACT_MODEL = 'tiiuae/falcon-7b-instruct'; // use Falcon for text generation
 
   try {
-    // Step 1: Check if email is about a meeting
+    // Step 1: Check if email is about meeting
     const classifyResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_CLASSIFY_MODEL}`, {
       method: 'POST',
       headers: {
@@ -45,9 +43,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Step 2: Extract meeting details using text2text generation
+    // Step 2: Extract meeting details using Falcon text generation
     const prompt = `
-Extract meeting details from the following email and respond ONLY with JSON including keys: title, date (ISO 8601 if possible), time, location.
+Extract meeting details from the following email and respond ONLY with JSON with keys: title, date (ISO 8601 or natural language), time, location.
 If no details found, return empty strings for all keys.
 Email:
 ${emailText}
@@ -75,15 +73,14 @@ ${emailText}
 
     const extractData = await extractResponse.json();
 
-    // extractData might be a string (the generated text)
+    // Falcon returns an array with generated_text usually
     const rawOutput = Array.isArray(extractData) ? extractData[0]?.generated_text : extractData.generated_text || extractData;
 
-    // Try parse JSON from raw output
+    // Parse JSON from raw output string
     let details;
     try {
       details = JSON.parse(rawOutput);
     } catch (e) {
-      // fallback: try to extract JSON part from output string
       const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
