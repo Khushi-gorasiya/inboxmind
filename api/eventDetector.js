@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN;
+  const HUGGINGFACE_TOKEN = process.env.VITE_HUGGINGFACE_TOKEN;
 
   if (!HUGGINGFACE_TOKEN) {
     return res.status(500).json({ error: 'Hugging Face API key not configured' });
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     const classifyResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_CLASSIFY_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HUGGINGFACE_TOKEN}`,
+        Authorization: `Bearer ${VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     const extractResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_EXTRACT_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HUGGINGFACE_TOKEN}`,
+        Authorization: `Bearer ${VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
