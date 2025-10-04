@@ -10,20 +10,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const HF_TOKEN = process.env.VITE_HUGGINGFACE_TOKEN;
-  if (!HF_TOKEN) {
-    return res.status(500).json({ error: 'Hugging Face API token not configured' });
-  }
-
+  // Hugging Face model for classification
   const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli';
-  const HF_EXTRACT_MODEL = 'google/flan-t5-base'; // or 'google/flan-t5-base' for smaller model
+  // Hugging Face model for extraction - use smaller flan-t5 variant
+  const HF_EXTRACT_MODEL = 'google/flan-t5-small';
 
   try {
-    // Step 1: Classify if email is about a meeting
+    // Step 1: Check if email is about a meeting
     const classifyResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_CLASSIFY_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HF_TOKEN}`,
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -45,25 +42,29 @@ export default async function handler(req, res) {
     const score = classifyData?.scores?.[0];
 
     if (label !== 'Meeting' || score < 0.7) {
-      // Not confident it's a meeting
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Step 2: Extract meeting details using text2text-generation model
-    // Construct prompt for FLAN-T5
-    const prompt = `Extract the meeting or event details from this email as JSON with keys: title, date (ISO 8601 or natural language), time (24h or natural language), location. 
-If no event found, respond with {"title": "", "date": "", "time": "", "location": ""}. 
-Email:\n\n${emailText}`;
+    // Step 2: Extract meeting details using text2text generation
+    const prompt = `
+Extract meeting details from the following email and respond ONLY with JSON including keys: title, date (ISO 8601 if possible), time, location.
+If no details found, return empty strings for all keys.
+Email:
+${emailText}
+`;
 
     const extractResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_EXTRACT_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HF_TOKEN}`,
+        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         inputs: prompt,
-        options: { wait_for_model: true },
+        parameters: {
+          max_new_tokens: 150,
+          temperature: 0,
+        },
       }),
     });
 
@@ -74,23 +75,16 @@ Email:\n\n${emailText}`;
 
     const extractData = await extractResponse.json();
 
-    // The response is typically an array of generated strings; get first item
-    let generatedText = '';
-    if (Array.isArray(extractData)) {
-      generatedText = extractData[0]?.generated_text || '';
-    } else if (typeof extractData.generated_text === 'string') {
-      generatedText = extractData.generated_text;
-    } else {
-      generatedText = JSON.stringify(extractData);
-    }
+    // extractData might be a string (the generated text)
+    const rawOutput = Array.isArray(extractData) ? extractData[0]?.generated_text : extractData.generated_text || extractData;
 
-    // Try to parse JSON from generated text
+    // Try parse JSON from raw output
     let details;
     try {
-      details = JSON.parse(generatedText.trim());
-    } catch {
-      // If parsing fails, try to extract JSON-looking substring
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      details = JSON.parse(rawOutput);
+    } catch (e) {
+      // fallback: try to extract JSON part from output string
+      const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           details = JSON.parse(jsonMatch[0]);
@@ -102,11 +96,10 @@ Email:\n\n${emailText}`;
       }
     }
 
-    if (!details || (!details.date && !details.time && !details.title && !details.location)) {
+    if (!details || (!details.date && !details.time)) {
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Return meeting details
     return res.status(200).json({ isMeeting: true, details });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
