@@ -8,78 +8,87 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing emailText in request body' });
   }
 
-  const API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-mnli';
+  const HUGGINGFACE_TOKEN = process.env.HUGGINGFACE_TOKEN;
+
+  if (!HUGGINGFACE_TOKEN) {
+    return res.status(500).json({ error: 'Hugging Face API key not configured' });
+  }
+
+  const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli'; // Zero-shot classification model
+  const HF_EXTRACT_MODEL = 'google/flan-t5-large'; // Instruction-tuned text2text model
 
   try {
-    // Step 1: Classify if email is about meeting
-    const response = await fetch(API_URL, {
+    // Step 1: Zero-shot classify if email is about a meeting
+    const classifyResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_CLASSIFY_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
+        Authorization: `Bearer ${HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         inputs: emailText,
         parameters: {
-          candidate_labels: ['Meeting', 'Not Meeting'],
-          hypothesis_template: 'This text is about a meeting: {}',
+          candidate_labels: ['a meeting', 'not a meeting'],
+          hypothesis_template: 'This is about {}.',
         },
       }),
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `Hugging Face API error: ${text}` });
+    if (!classifyResponse.ok) {
+      const text = await classifyResponse.text();
+      console.error('Hugging Face classification API error:', text);
+      return res.status(classifyResponse.status).json({ error: `Hugging Face classification API error: ${text}` });
     }
 
-    const data = await response.json();
-    const label = data?.labels?.[0];
-    const score = data?.scores?.[0];
+    const classifyData = await classifyResponse.json();
 
-    if (label !== 'Meeting' || score < 0.7) {
+    const label = classifyData.labels?.[0];
+    const score = classifyData.scores?.[0];
+
+    if (label !== 'a meeting' || score < 0.7) {
       // Not confident it's a meeting
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Step 2: Extract meeting details with strict JSON output
-    const extractResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Step 2: Extract meeting details with instruction prompt
+    const extractPrompt = `Extract the meeting or event details from this email as JSON with the keys: title, date (ISO 8601 or natural language), time (24h or natural language), location. If no event found, respond with {"title": "", "date": "", "time": "", "location": ""}.\nEmail:\n${emailText}`;
+
+    const extractResponse = await fetch(`https://api-inference.huggingface.co/models/${HF_EXTRACT_MODEL}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${HUGGINGFACE_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant that extracts meeting or event details from an email.',
-          },
-          {
-            role: 'user',
-            content: `Extract the meeting or event details from this email as JSON with the keys: title, date (ISO 8601 or natural language), time (24h or natural language), location. If no event found, respond with {"title": "", "date": "", "time": "", "location": ""}. Email:\n\n${emailText}`,
-          },
-        ],
+        inputs: extractPrompt,
+        parameters: {
+          max_new_tokens: 256,
+          return_full_text: false,
+        },
       }),
     });
 
     if (!extractResponse.ok) {
       const text = await extractResponse.text();
-      return res.status(extractResponse.status).json({ error: `OpenRouter API error: ${text}` });
+      return res.status(extractResponse.status).json({ error: `Hugging Face extract API error: ${text}` });
     }
 
     const extractData = await extractResponse.json();
-    const content = extractData?.choices?.[0]?.message?.content || '';
 
-    // Extract JSON helper function
+    if (!extractData || !extractData.generated_text) {
+      return res.status(200).json({ isMeeting: false });
+    }
+
+    const content = extractData.generated_text.trim();
+    console.log('Hugging Face extraction response:', content);
+
+    // Helper to parse JSON from model output
     function extractJSON(text) {
       try {
         return JSON.parse(text);
       } catch {
         try {
           const cleaned = text
-            .replace(/<s>\s*\[OUT\]/gi, '')
-            .replace(/\[\/OUT\]\s*<\/s?>?/gi, '')
             .replace(/```json\s*/gi, '')
             .replace(/```/g, '')
             .trim();
@@ -92,14 +101,20 @@ export default async function handler(req, res) {
 
     const details = extractJSON(content);
 
-    if (!details || (!details.date && !details.time)) {
-      // No valid event found
+    if (!details) {
+      console.warn('Failed to parse JSON from Hugging Face extract:', content);
       return res.status(200).json({ isMeeting: false });
     }
 
-    // Return meeting details
+    if (!details.date && !details.time) {
+      // No valid event date/time found
+      return res.status(200).json({ isMeeting: false });
+    }
+
+    // Return the extracted meeting details
     return res.status(200).json({ isMeeting: true, details });
   } catch (error) {
+    console.error('Event Detector Error:', error);
     return res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 }
