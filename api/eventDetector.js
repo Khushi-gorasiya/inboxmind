@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   const HF_CLASSIFY_MODEL = 'facebook/bart-large-mnli';
-  const HF_EXTRACT_MODEL = 'google/flan-t5-xl'; // or 'google/flan-t5-base' for smaller model
+  const HF_EXTRACT_MODEL = 'google/flan-t5-base'; // or 'google/flan-t5-base' for smaller model
 
   try {
     // Step 1: Classify if email is about a meeting
