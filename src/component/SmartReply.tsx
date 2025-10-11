@@ -1,4 +1,5 @@
 // src/component/SmartReply.tsx
+
 import React, { useState } from 'react';
 
 interface SmartReplyProps {
@@ -11,14 +12,10 @@ const SmartReply: React.FC<SmartReplyProps> = ({ emailText }) => {
   const [loading, setLoading] = useState(false);
 
   const generateReply = async () => {
-    // Reset reply and error before starting
     setReply('');
     setError(null);
 
-    if (!emailText.trim()) {
-      setError(null); // No error if input is empty, just clear reply
-      return;
-    }
+    if (!emailText.trim()) return;
 
     setLoading(true);
 
@@ -29,16 +26,25 @@ const SmartReply: React.FC<SmartReplyProps> = ({ emailText }) => {
         body: JSON.stringify({ emailText }),
       });
 
-      const data = await response.json();
+      let data: any;
+
+      // SAFELY handle non-JSON error responses
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(`Unexpected response from server: ${text}`);
+      }
 
       if (!response.ok) {
-        // API returned error
         setError(data.error || 'Failed to generate reply.');
       } else if (data.reply) {
         setReply(data.reply);
       } else {
         setError('No reply returned from the AI.');
       }
+
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
@@ -67,14 +73,12 @@ const SmartReply: React.FC<SmartReplyProps> = ({ emailText }) => {
         {loading ? 'Generating...' : 'Generate Reply'}
       </button>
 
-      {/* Show error only if exists */}
       {error && (
         <p style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
           Error: {error}
         </p>
       )}
 
-      {/* Show reply only if exists */}
       {reply && (
         <div
           style={{
