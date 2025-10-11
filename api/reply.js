@@ -9,6 +9,16 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('API Key loaded:', !!process.env.GROQ_API_KEY);
+    console.log('Sending request to Groq API at https://api.groq.com/openai/v1/chat/completions');
+    console.log('Request payload:', JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are an AI assistant. Generate a short, polite reply to the email provided.' },
+        { role: 'user', content: emailText },
+      ],
+    }));
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -18,39 +28,37 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant. Generate a short, polite reply to the email provided.',
-          },
-          {
-            role: 'user',
-            content: emailText,
-          },
+          { role: 'system', content: 'You are an AI assistant. Generate a short, polite reply to the email provided.' },
+          { role: 'user', content: emailText },
         ],
       }),
     });
 
-    // Check if the response is OK before trying to parse it
-    const contentType = response.headers.get('content-type');
+    console.log('Response status from Groq:', response.status);
+
+    const text = await response.text();
+
+    // Log raw response text (useful for debugging JSON parse errors)
+    console.log('Raw response text:', text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (jsonErr) {
+      console.error('Failed to parse JSON:', jsonErr);
+      return res.status(500).json({ error: 'Invalid JSON response from Groq API' });
+    }
+
     if (!response.ok) {
-      // Try to get the text response (could be HTML or plain error)
-      const errorText = await response.text();
       return res.status(response.status).json({
-        error: `Groq API Error: ${errorText}`,
+        error: (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) || 'Reply generation failed',
       });
     }
 
-    // Ensure it's JSON before parsing
-    if (!contentType || !contentType.includes('application/json')) {
-      return res.status(500).json({ error: 'Invalid response format from Groq API' });
-    }
-
-    const data = await response.json();
-
     const reply = data?.choices?.[0]?.message?.content?.trim();
     res.status(200).json({ reply: reply || 'No reply generated.' });
-
   } catch (err) {
+    console.error('Error in handler:', err);
     res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
